@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>3D BLOCK</title>
+
+<style>
+
+body{
+font-family: Arial;
+text-align:center;
+background:#f2f2f2;
+}
+
+h1{
+color:#00cc44;
+}
+
+input{
+width:220px;
+padding:8px;
+font-size:18px;
+margin:10px;
+}
+
+button{
+padding:12px 30px;
+font-size:18px;
+background:#888;
+color:blue;
+border:none;
+border-radius:5px;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>3D - BLOCK</h1>
+
+<p>Nhập tên tàu</p>
+<input id="ship" placeholder="Ví dụ: S57606">
+
+<p>Nhập tên Block</p>
+<input id="block" placeholder="Ví dụ: H12C">
+
+<br>
+
+<button onclick="open3D()">BẮT ĐẦU</button>
+
+<script>
+
+function open3D(){
+
+var ship = document.getElementById("ship").value;
+var block = document.getElementById("block").value;
+
+var url = "https://mobile3d.hmd.co.kr:8087/VIZWide3D/OutfitMobile3dhttps.html?ship=" + ship + "&block=" + block;
+
+window.location.href = url;
+
+}
+
+</script>
+
+</body>
+
+</html>
