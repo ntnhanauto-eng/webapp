@@ -1,36 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
+
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>3D BLOCK</title>
+
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 <style>
 
 body{
-font-family: Arial;
-text-align:center;
+font-family: Arial, sans-serif;
 background:#f2f2f2;
+margin:0;
+padding:0;
+display:flex;
+flex-direction:column;
+align-items:center;
+min-height:100vh;
 }
 
-h1{
-color:#00cc44;
+.header{
+width:100%;
+background:#00cc44;
+color:white;
+text-align:center;
+padding:15px;
+font-size:22px;
+font-weight:bold;
+box-shadow:0 2px 5px rgba(0,0,0,0.2);
+}
+
+.container{
+width:90%;
+max-width:450px;
+background:white;
+padding:25px;
+border-radius:12px;
+box-shadow:0 0 10px rgba(0,0,0,0.15);
+text-align:center;
+margin-top:20px;
+}
+
+label{
+font-size:18px;
+display:block;
+margin-top:12px;
 }
 
 input{
-width:220px;
-padding:8px;
+width:100%;
+padding:14px;
 font-size:18px;
-margin:10px;
+margin-top:8px;
+border-radius:6px;
+border:1px solid #ccc;
+box-sizing:border-box;
 }
 
 button{
-padding:12px 30px;
-font-size:18px;
-background:#888;
-color:blue;
+width:100%;
+padding:16px;
+font-size:20px;
+margin-top:25px;
+background:#007bff;
+color:white;
 border:none;
-border-radius:5px;
+border-radius:8px;
 cursor:pointer;
+transition:0.2s;
+}
+
+button:hover{
+background:#0060cc;
+}
+
+button:active{
+transform:scale(0.96);
+}
+
+.footer{
+margin-top:auto;
+text-align:center;
+font-size:13px;
+color:#777;
+padding:10px;
+}
+
+.footer-line{
+height:1px;
+background:#ddd;
+width:80%;
+margin:10px auto;
+}
+
+.footer-title{
+font-weight:bold;
+color:#444;
 }
 
 </style>
@@ -39,41 +109,76 @@ cursor:pointer;
 
 <body>
 
-<h3>3D - BLOCK</h3>
-<br>
-<br>
-<p>Nhập tên tàu</p>
-<input id="ship" placeholder="Ví dụ: S57606">
+<div class="header">
+🚢 3D BLOCK VIEWER
+</div>
 
-<p>Nhập tên Block</p>
-<input id="block" placeholder="Ví dụ: H12C">
+<div class="container">
 
-<br>
-  <br>
+<label>Nhập tàu</label>
+
+<input id="shipInput" placeholder="Ví dụ: S57606">
+
+
+<label>Nhập Block</label>
+
+<input id="blockInput" placeholder="Ví dụ: E41P, 2E31, H12C...">
 
 <button onclick="open3D()">BẮT ĐẦU</button>
 
+</div>
+
+<footer class="footer">
+
+<div class="footer-line"></div>
+
+<p class="footer-title">3D BLOCK VIEWER</p>
+<p>HD Hyundai Vietnam</p>
+<p>Developed by Nguyen Thanh Nhan - 201408</p>
+<p>E/R Out Section</p>
+<p>Outfitting 1</p>
+<p>Version 1.0 | © 2026</p>
+
+</footer>
+
 <script>
+
+window.onload=function(){
+
+var lastShip=localStorage.getItem("ship");
+var lastBlock=localStorage.getItem("block");
+
+if(lastShip){
+document.getElementById("shipInput").value=lastShip;
+}
+
+if(lastBlock){
+document.getElementById("blockInput").value=lastBlock;
+}
+
+}
+
+/* Tự động viết hoa Block */
+
+document.getElementById("blockInput").addEventListener("input", function(){
+this.value=this.value.toUpperCase();
+});
 
 function open3D(){
 
-var ship = document.getElementById("ship").value;
-var block = document.getElementById("block").value;
+var ship=document.getElementById("shipInput").value;
+var block=document.getElementById("blockInput").value;
 
-var url = "https://mobile3d.hmd.co.kr:8087/VIZWide3D/OutfitMobile3dhttps.html?ship=" + ship + "&block=" + block;
+localStorage.setItem("ship",ship);
+localStorage.setItem("block",block);
 
-window.location.href = url;
+var url="https://mobile3d.hmd.co.kr:8087/VIZWide3D/OutfitMobile3dhttps.html?ship="+ship+"&block="+block;
+
+window.location.href=url;
 
 }
 
 </script>
- <br>
-  <p>Xem Block 3D phiên bản trên điện thoại. Version 1.0</p>
-   <br>
-  <p>Nguyễn Thành Nhân - 201408</p>
-   <br>
-  <p>E/R section</p> <br>
-  <p>Outfitting 10</p>
-</body>
 
+</body>
 </html>
