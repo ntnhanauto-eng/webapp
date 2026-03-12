@@ -1,15 +1,84 @@
+```html
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website Template</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+}
+
+header{
+    background:#333;
+    color:white;
+    padding:15px;
+    text-align:center;
+}
+
+nav{
+    background:#555;
+    display:flex;
+    justify-content:center;
+}
+
+nav a{
+    color:white;
+    padding:14px 20px;
+    text-decoration:none;
+}
+
+nav a:hover{
+    background:#777;
+}
+
+main{
+    padding:20px;
+    min-height:300px;
+}
+
+footer{
+    background:#333;
+    color:white;
+    text-align:center;
+    padding:10px;
+}
+
+/* Responsive Mobile */
+@media (max-width:600px){
+    nav{
+        flex-direction:column;
+        text-align:center;
+    }
+}
+</style>
+</head>
+
 <body>
 
 <header>
-<h1>Website của tôi</h1>
+<h1>My Website</h1>
 </header>
 
+<nav>
+<a href="#">Home</a>
+<a href="#">About</a>
+<a href="#">Services</a>
+<a href="#">Contact</a>
+</nav>
+
 <main>
-<p>Nội dung sẽ viết ở đây.</p>
+<h2>Welcome</h2>
+<p>Nội dung website đặt ở đây.</p>
 </main>
 
 <footer>
-<p>© 2026</p>
+<p>© 2026 My Website</p>
 </footer>
 
 </body>
+</html>
+```
