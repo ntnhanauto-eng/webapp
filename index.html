@@ -1,88 +1,237 @@
-```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TEST</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Tin tức 24h</title>
 
 <style>
+
 body{
-    margin:0;
-    font-family:Arial, sans-serif;
+margin:0;
+font-family:Arial;
+background:#f2f2f2;
 }
 
 header{
-    background:#777;
-    color:white;
-    padding:12px;
-    text-align:center;
+background:#d60000;
+color:white;
+padding:15px;
+text-align:center;
+font-size:22px;
+position:sticky;
+top:0;
+z-index:10;
 }
 
-nav{
-    background:#555;
-    display:flex;
-    justify-content:center;
+.toolbar{
+display:flex;
+gap:8px;
+padding:10px;
+background:white;
 }
 
-nav a{
-    color:white;
-    padding:14px 20px;
-    text-decoration:none;
+input{
+flex:1;
+padding:8px;
+font-size:15px;
 }
 
-nav a:hover{
-    background:#777;
+button{
+padding:8px;
+cursor:pointer;
 }
 
-main{
-    padding:20px;
-    min-height:300px;
+.container{
+max-width:900px;
+margin:auto;
+padding:10px;
 }
 
-footer{
-    background:#333;
-    color:white;
-    text-align:center;
-    padding:10px;
+.news{
+background:white;
+margin-bottom:12px;
+border-radius:8px;
+overflow:hidden;
+box-shadow:0 2px 6px rgba(0,0,0,0.1);
 }
 
-/* Responsive Mobile */
-@media (max-width:600px){
-    nav{
-        flex-direction:column;
-        text-align:center;
-    }
+.news img{
+width:100%;
 }
+
+.title{
+padding:10px;
+font-weight:bold;
+font-size:18px;
+}
+
+.source{
+padding:0 10px 10px;
+color:gray;
+font-size:13px;
+}
+
+.dark{
+background:#111;
+color:white;
+}
+
+.dark .news{
+background:#222;
+}
+
 </style>
+
 </head>
 
 <body>
 
 <header>
-<h1>My Website</h1>
+TIN TỨC TỔNG HỢP
 </header>
 
-<nav>
-<a href="https://baokhanhhoa.vn" target="newsframe">Báo Khánh Hòa</a>
-<a href="https://ntnhanauto-eng.github.io/block3dviewer/" target="newsframe">xem 3D</a>
-<a href="https://tuoitre.vn" target="newsframe">Tuổi Trẻ</a>
-</nav>
+<div class="toolbar">
 
-<main>
+<input id="search" placeholder="Tìm tin...">
 
-<iframe 
-name="newsframe"
-src=""
-style="width:100%; height:600px; border:none;">
-</iframe>
+<button onclick="toggleDark()">🌙</button>
 
-</main>
+</div>
 
-<footer>
-<p>© 2026 My Website</p>
-</footer>
+<div class="container" id="news"></div>
+
+<script>
+
+const feeds=[
+
+{name:"VnExpress",url:"https://vnexpress.net/rss/tin-moi-nhat.rss"},
+{name:"Tuổi Trẻ",url:"https://tuoitre.vn/rss/tin-moi-nhat.rss"},
+{name:"Thanh Niên",url:"https://thanhnien.vn/rss/home.rss"},
+{name:"Dân Trí",url:"https://dantri.com.vn/rss/home.rss"},
+{name:"VietnamNet",url:"https://vietnamnet.vn/rss/home.rss"}
+
+]
+
+let allNews=[]
+let limit=15
+
+const container=document.getElementById("news")
+
+async function loadNews(){
+
+for(let f of feeds){
+
+const api="https://api.rss2json.com/v1/api.json?rss_url="+f.url
+
+const res=await fetch(api)
+const data=await res.json()
+
+data.items.forEach(item=>{
+
+allNews.push({
+
+title:item.title,
+link:item.link,
+img:item.thumbnail,
+source:f.name
+
+})
+
+})
+
+}
+
+render()
+
+}
+
+function render(){
+
+container.innerHTML=""
+
+allNews.slice(0,limit).forEach(n=>{
+
+container.innerHTML+=`
+
+<div class="news">
+
+<img src="${n.img}">
+
+<div class="title">
+<a href="${n.link}" target="_blank">
+${n.title}
+</a>
+</div>
+
+<div class="source">
+${n.source}
+</div>
+
+</div>
+
+`
+
+})
+
+}
+
+window.addEventListener("scroll",()=>{
+
+if(window.innerHeight+window.scrollY>=document.body.offsetHeight-200){
+
+limit+=10
+render()
+
+}
+
+})
+
+document.getElementById("search").addEventListener("input",e=>{
+
+const k=e.target.value.toLowerCase()
+
+const filtered=allNews.filter(n=>n.title.toLowerCase().includes(k))
+
+container.innerHTML=""
+
+filtered.forEach(n=>{
+
+container.innerHTML+=`
+
+<div class="news">
+
+<img src="${n.img}">
+
+<div class="title">
+<a href="${n.link}" target="_blank">
+${n.title}
+</a>
+</div>
+
+<div class="source">
+${n.source}
+</div>
+
+</div>
+
+`
+
+})
+
+})
+
+function toggleDark(){
+
+document.body.classList.toggle("dark")
+
+}
+
+loadNews()
+
+</script>
 
 </body>
 </html>
-```
