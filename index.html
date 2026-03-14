@@ -57,7 +57,7 @@ text-align:center;
 <div id="map"></div>
 
 <div id="info">
-
+<div id="locationName"></div>
 <h3>📍 Thông tin thời tiết 3 giờ tới</h3>
 
 <table>
@@ -118,6 +118,14 @@ map.on("click",function(e){
 const lat=e.latlng.lat
 const lon=e.latlng.lng
 
+loadLocation(lat,lon)
+loadWeather(lat,lon)
+
+})
+
+const lat=e.latlng.lat
+const lon=e.latlng.lng
+
 loadWeather(lat,lon)
 
 })
@@ -142,7 +150,7 @@ let hours=data.hourly.time
 
 for(let i=0;i<3;i++){
 
-let time=new Date(hours[i])
+let time=new Date(hours[i]).toLocaleTimeString("vi-VN")
 
 let temp=data.hourly.temperature_2m[i]
 
@@ -174,6 +182,22 @@ table.innerHTML+=row
 
 }
 
+function loadLocation(lat,lon){
+
+fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+
+.then(res=>res.json())
+
+.then(data=>{
+
+document.getElementById("locationName").innerHTML=
+"📍 Vị trí: "+data.display_name
+
+})
+
+}
+
+  
 </script>
 
 </body>
