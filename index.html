@@ -44,11 +44,14 @@ opacity:0.8;
 
 <script>
 
-const lat = 16.05
-const lon = 108.2
+const lat = 12.55
+const lon = 109.2
 const zoom = 7
 
-const map = L.map('map').setView([lat,lon],zoom)
+const map = L.map('map',{
+minZoom:3,
+maxZoom:10
+}).setView([lat,lon],zoom)
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
 maxZoom:10
@@ -79,7 +82,9 @@ const tileLayer=L.tileLayer(
 `${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,
 {
 tileSize:256,
-opacity:0
+opacity:0,
+maxZoom:10,
+minZoom:3
 })
 
 radarLayers.push({
@@ -120,6 +125,13 @@ framePosition=0
 
 }
 
+
+
+const map = L.map('map',{
+preferCanvas:true,
+minZoom:3,
+maxZoom:10
+}).setView([lat,lon],zoom)  
 </script>
 
 </body>
