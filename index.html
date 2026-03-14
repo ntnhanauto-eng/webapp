@@ -5,43 +5,80 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Radar + Dự báo 3h</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<title>Tin Nhanh 24h</title>
 
 <style>
 
 body{
 margin:0;
 font-family:Arial;
-background:#0b2233;
+background:#0f172a;
 color:white;
 }
 
 header{
+background:#020617;
+padding:15px;
 text-align:center;
-padding:10px;
-font-size:20px;
+font-size:22px;
 font-weight:bold;
+border-bottom:1px solid #334155;
 }
 
-#map{
-height:420px;
-}
-
-#info{
+#news{
 padding:15px;
 }
 
-table{
-width:100%;
-border-collapse:collapse;
+.article{
+padding:12px;
+margin-bottom:10px;
+background:#1e293b;
+border-radius:10px;
+cursor:pointer;
+transition:0.2s;
 }
 
-th,td{
-padding:10px;
-border-bottom:1px solid rgba(255,255,255,0.2);
-text-align:center;
+.article:hover{
+background:#334155;
+}
+
+.title{
+font-size:16px;
+font-weight:bold;
+}
+
+.source{
+font-size:12px;
+color:#94a3b8;
+margin-top:5px;
+}
+
+#viewer{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:black;
+display:none;
+z-index:999;
+}
+
+#viewer iframe{
+width:100%;
+height:100%;
+border:none;
+}
+
+#close{
+position:absolute;
+top:10px;
+right:15px;
+font-size:20px;
+background:red;
+padding:6px 10px;
+border-radius:6px;
+cursor:pointer;
 }
 
 </style>
@@ -51,153 +88,85 @@ text-align:center;
 <body>
 
 <header>
-🌧 Radar + Dự báo 3 giờ
+TIN TỨC MỚI NHẤT
 </header>
 
-<div id="map"></div>
+<div id="news"></div>
 
-<div id="info">
-<div id="locationName"></div>
-<h3>📍 Thông tin thời tiết 3 giờ tới</h3>
-
-<table>
-
-<tr>
-<th>Thời gian</th>
-<th>Nhiệt độ</th>
-<th>Mưa</th>
-<th>Gió</th>
-<th>Trạng thái</th>
-</tr>
-
-<tbody id="weatherTable"></tbody>
-
-</table>
-
+<div id="viewer">
+<div id="close">Đóng</div>
+<iframe id="frame"></iframe>
 </div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-// tạo map
+const feeds = [
 
-const map=L.map("map").setView([12.55,109.2],7)
+{
+url:"https://vnexpress.net/rss/tin-moi-nhat.rss",
+name:"VnExpress"
+},
 
-L.tileLayer(
-"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-).addTo(map)
+{
+url:"https://tuoitre.vn/rss/tin-moi-nhat.rss",
+name:"Tuổi Trẻ"
+},
 
-let radarLayer
-
-// load radar
-
-fetch("https://api.rainviewer.com/public/weather-maps.json")
-
-.then(r=>r.json())
-
-.then(data=>{
-
-const host=data.host
-
-const frame=data.radar.past.slice(-1)[0]
-
-radarLayer=L.tileLayer(
-host+frame.path+"/256/{z}/{x}/{y}/2/1_1.png",
-{opacity:0.6}
-)
-
-radarLayer.addTo(map)
-
-})
-
-// click map lấy vị trí
-
-map.on("click",function(e){
-
-const lat=e.latlng.lat
-const lon=e.latlng.lng
-
-loadLocation(lat,lon)
-loadWeather(lat,lon)
-
-})
-
-const lat=e.latlng.lat
-const lon=e.latlng.lng
-
-loadWeather(lat,lon)
-
-})
-
-// lấy dự báo
-
-function loadWeather(lat,lon){
-
-fetch(
-`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,weathercode,windspeed_10m&forecast_days=1`
-)
-
-.then(r=>r.json())
-
-.then(data=>{
-
-let table=document.getElementById("weatherTable")
-
-table.innerHTML=""
-
-let hours=data.hourly.time
-
-for(let i=0;i<3;i++){
-
-let time=new Date(hours[i]).toLocaleTimeString("vi-VN")
-
-let temp=data.hourly.temperature_2m[i]
-
-let rain=data.hourly.precipitation[i]
-
-let wind=data.hourly.windspeed_10m[i]
-
-let status="Nắng"
-
-if(rain>0){
-status="Mưa"
+{
+url:"https://thanhnien.vn/rss/home.rss",
+name:"Thanh Niên"
 }
 
-let row=`
-<tr>
-<td>${time.toLocaleTimeString()}</td>
-<td>${temp}°C</td>
-<td>${rain} mm</td>
-<td>${wind} km/h</td>
-<td>${status}</td>
-</tr>
+];
+
+async function loadNews(){
+
+const container = document.getElementById("news");
+
+for(const feed of feeds){
+
+const url = "https://api.rss2json.com/v1/api.json?rss_url="+feed.url;
+
+const res = await fetch(url);
+const data = await res.json();
+
+data.items.slice(0,5).forEach(item=>{
+
+const div = document.createElement("div");
+div.className="article";
+
+div.innerHTML=
 `
+<div class="title">${item.title}</div>
+<div class="source">${feed.name}</div>
+`;
 
-table.innerHTML+=row
+div.onclick=()=>openNews(item.link);
 
-}
+container.appendChild(div);
 
-})
-
-}
-
-function loadLocation(lat,lon){
-
-fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-
-.then(res=>res.json())
-
-.then(data=>{
-
-document.getElementById("locationName").innerHTML=
-"📍 Vị trí: "+data.display_name
-
-})
+});
 
 }
 
-  
+}
+
+function openNews(url){
+
+document.getElementById("viewer").style.display="block";
+document.getElementById("frame").src=url;
+
+}
+
+document.getElementById("close").onclick=function(){
+
+document.getElementById("viewer").style.display="none";
+document.getElementById("frame").src="";
+
+}
+
+loadNews();
+
 </script>
 
 </body>
