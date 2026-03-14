@@ -44,14 +44,13 @@ opacity:0.8;
 
 <script>
 
+<script>
+
 const lat = 12.55
 const lon = 109.2
 const zoom = 7
 
-const map = L.map('map',{
-minZoom:3,
-maxZoom:10
-}).setView([lat,lon],zoom)
+const map = L.map('map').setView([lat,lon],zoom)
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
 maxZoom:10
