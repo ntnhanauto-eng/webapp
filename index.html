@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Radar mưa + dự báo 2h</title>
+<title>Radar mưa Ninh Hòa</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -19,7 +19,6 @@ color:white;
 }
 
 header{
-background:#062338;
 text-align:center;
 padding:12px;
 font-size:20px;
@@ -30,20 +29,26 @@ font-weight:bold;
 height:420px;
 }
 
+.controls{
+text-align:center;
+padding:10px;
+}
+
+button{
+padding:6px 12px;
+font-size:16px;
+margin:5px;
+}
+
 table{
 width:100%;
 border-collapse:collapse;
-margin-top:10px;
 }
 
 th,td{
 padding:10px;
 border-bottom:1px solid rgba(255,255,255,0.2);
 text-align:center;
-}
-
-.section{
-padding:10px;
 }
 
 </style>
@@ -53,43 +58,48 @@ padding:10px;
 <body>
 
 <header>
-🌧 Radar mưa + dự báo 2h
+🌧 Radar mưa Ninh Hòa (2h trước → 2h tới)
 </header>
 
 <div id="map"></div>
 
-<div class="section">
+<div class="controls">
 
-<h3>⏱ Dự báo radar</h3>
+<button onclick="play()">▶ Play</button>
+<button onclick="pause()">⏸ Pause</button>
+
+</div>
+
+<h3 style="text-align:center">⏱ Dự báo radar</h3>
 
 <table>
 
 <tr>
 <th>Thời gian</th>
-<th>Trạng thái radar</th>
+<th>Trạng thái</th>
 </tr>
 
 <tbody id="forecast"></tbody>
 
 </table>
 
-</div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-const lat = 12.55
-const lon = 109.2
-const zoom = 7
+const lat=12.55
+const lon=109.2
+const zoom=7
 
-const map = L.map("map").setView([lat,lon],zoom)
+const map=L.map("map").setView([lat,lon],zoom)
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-maxZoom:18
-}).addTo(map)
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map)
 
-let radarLayer=null
+L.marker([lat,lon]).addTo(map).bindPopup("Ninh Hòa")
+
+let radarLayers=[]
+let frameIndex=0
+let animation=null
 
 fetch("https://api.rainviewer.com/public/weather-maps.json")
 
@@ -102,21 +112,54 @@ const host=data.host
 const past=data.radar.past
 const nowcast=data.radar.nowcast
 
-let frames=[...past.slice(-6),...nowcast]
+const frames=[...past.slice(-6),...nowcast]
 
-let lastFrame=frames[frames.length-1]
+frames.forEach(frame=>{
 
-let path=host+lastFrame.path+"/256/{z}/{x}/{y}/2/1_1.png"
+let layer=L.tileLayer(
+host+frame.path+"/256/{z}/{x}/{y}/2/1_1.png",
+{opacity:0.6}
+)
 
-radarLayer=L.tileLayer(path,{
-opacity:0.7
+radarLayers.push(layer)
+
 })
 
-radarLayer.addTo(map)
+radarLayers[0].addTo(map)
 
 createTable(frames)
 
 })
+
+function showFrame(){
+
+radarLayers.forEach(l=>map.removeLayer(l))
+
+radarLayers[frameIndex].addTo(map)
+
+frameIndex++
+
+if(frameIndex>=radarLayers.length){
+frameIndex=0
+}
+
+}
+
+function play(){
+
+if(animation)return
+
+animation=setInterval(showFrame,700)
+
+}
+
+function pause(){
+
+clearInterval(animation)
+
+animation=null
+
+}
 
 function createTable(frames){
 
