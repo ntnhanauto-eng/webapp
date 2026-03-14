@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Tin tức Khánh Hòa</title>
+<title>Tin từ Báo Mới</title>
 
 <style>
 
@@ -38,12 +38,6 @@ background:#1e293b;
 border-radius:10px;
 overflow:hidden;
 cursor:pointer;
-transition:0.2s;
-}
-
-.article:hover{
-transform:scale(1.03);
-background:#334155;
 }
 
 .article img{
@@ -61,14 +55,10 @@ font-size:15px;
 font-weight:bold;
 }
 
-.source{
+.date{
 font-size:12px;
 color:#94a3b8;
-margin-top:6px;
-}
-
-.priority{
-border:2px solid #22c55e;
+margin-top:5px;
 }
 
 #viewer{
@@ -79,7 +69,6 @@ width:100%;
 height:100%;
 background:black;
 display:none;
-z-index:999;
 }
 
 #viewer iframe{
@@ -96,7 +85,6 @@ background:red;
 padding:8px 12px;
 border-radius:6px;
 cursor:pointer;
-z-index:1000;
 }
 
 </style>
@@ -106,113 +94,51 @@ z-index:1000;
 <body>
 
 <header>
-TIN TỨC KHÁNH HÒA & VIỆT NAM
+TIN TỔNG HỢP BÁO MỚI
 </header>
 
 <div id="news"></div>
 
 <div id="viewer">
-
 <div id="close">Đóng</div>
-
 <iframe id="frame"></iframe>
-
 </div>
 
 <script>
 
-const feeds=[
-
-/* Ưu tiên báo Khánh Hòa */
-{url:"https://baokhanhhoa.vn/rss/tin-moi-nhat.rss",name:"BaoKhanhHoa",priority:true},
-
-/* báo khác */
-{url:"https://baokhanhhoa.vn/rss/tin-moi-nhat.rss",name:"Báo Khánh Hoà"},
-{url:"https://dantri.com.vn/trangchu.rss",name:"DanTri"},
-{url:"https://vtc.vn/rss/feed.rss",name:"VTC"},
-{url:"https://baomoi.com/tag/rss.epi",name:"Baomoi"}
-
-];
-
-let news=[];
-
 async function loadNews(){
 
-news=[];
+const url="https://api.rss2json.com/v1/api.json?rss_url=https://baomoi-com.webnode.vn/rss/all.xml";
 
-for(const feed of feeds){
+const res=await fetch(url);
 
-const api="https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(feed.url);
-
-try{
-
-const res=await fetch(api);
 const data=await res.json();
-
-data.items.forEach(item=>{
-
-news.push({
-
-title:item.title,
-link:item.link,
-image:item.thumbnail || "",
-source:feed.name,
-priority:feed.priority || false,
-date:new Date(item.pubDate)
-
-});
-
-});
-
-}catch(e){
-console.log("RSS lỗi:",feed.name);
-}
-
-}
-
-renderNews();
-
-}
-
-function renderNews(){
-
-/* Ưu tiên báo Khánh Hòa trước */
-news.sort((a,b)=>{
-
-if(a.priority && !b.priority) return -1;
-if(!a.priority && b.priority) return 1;
-
-return b.date-a.date;
-
-});
 
 const container=document.getElementById("news");
 
 container.innerHTML="";
 
-news.slice(0,40).forEach(n=>{
+data.items.slice(0,40).forEach(item=>{
 
 const div=document.createElement("div");
 
 div.className="article";
 
-if(n.priority) div.classList.add("priority");
-
 div.innerHTML=`
 
-<img src="${n.image || 'https://via.placeholder.com/400x200'}">
+<img src="${item.thumbnail || 'https://via.placeholder.com/400x200'}">
 
 <div class="content">
 
-<div class="title">${n.title}</div>
+<div class="title">${item.title}</div>
 
-<div class="source">${n.source}</div>
+<div class="date">${item.pubDate}</div>
 
 </div>
 
 `;
 
-div.onclick=()=>openNews(n.link);
+div.onclick=()=>openNews(item.link);
 
 container.appendChild(div);
 
@@ -239,6 +165,7 @@ document.getElementById("frame").src="";
 loadNews();
 
 /* cập nhật mỗi 5 phút */
+
 setInterval(loadNews,300000);
 
 </script>
