@@ -1,173 +1,183 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Tin Nhanh 24h</title>
-
+<title>Tin Nhanh 24h - Pro</title>
 <style>
-
 body{
-margin:0;
-font-family:Arial;
-background:#0f172a;
-color:white;
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#0f172a;
+  color:white;
 }
-
 header{
-background:#020617;
-padding:15px;
-text-align:center;
-font-size:22px;
-font-weight:bold;
-border-bottom:1px solid #334155;
+  background:#020617;
+  padding:15px;
+  text-align:center;
+  font-size:22px;
+  font-weight:bold;
+  border-bottom:1px solid #334155;
 }
-
+#search{
+  width:95%;
+  margin:15px auto;
+  display:block;
+  padding:10px;
+  font-size:16px;
+  border-radius:8px;
+  border:none;
+}
 #news{
-padding:15px;
+  padding:15px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:center;
 }
-
 .article{
-padding:12px;
-margin-bottom:10px;
-background:#1e293b;
-border-radius:10px;
-cursor:pointer;
-transition:0.2s;
+  background:#1e293b;
+  border-radius:10px;
+  width:300px;
+  cursor:pointer;
+  overflow:hidden;
+  transition:0.2s;
 }
-
 .article:hover{
-background:#334155;
+  background:#334155;
 }
-
-.title{
-font-size:16px;
-font-weight:bold;
+.article img{
+  width:100%;
+  height:170px;
+  object-fit:cover;
 }
-
-.source{
-font-size:12px;
-color:#94a3b8;
-margin-top:5px;
+.article .content{
+  padding:10px;
 }
-
+.article .title{
+  font-size:16px;
+  font-weight:bold;
+}
+.article .source{
+  font-size:12px;
+  color:#94a3b8;
+  margin-top:5px;
+}
 #viewer{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:black;
-display:none;
-z-index:999;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:black;
+  display:none;
+  z-index:999;
 }
-
 #viewer iframe{
-width:100%;
-height:100%;
-border:none;
+  width:100%;
+  height:100%;
+  border:none;
 }
-
 #close{
-position:absolute;
-top:10px;
-right:15px;
-font-size:20px;
-background:red;
-padding:6px 10px;
-border-radius:6px;
-cursor:pointer;
+  position:absolute;
+  top:10px;
+  right:15px;
+  font-size:20px;
+  background:red;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  z-index:1000;
 }
-
 </style>
-
 </head>
-
 <body>
 
 <header>
 TIN TỨC MỚI NHẤT
 </header>
 
+<input type="text" id="search" placeholder="Tìm kiếm tin tức...">
+
 <div id="news"></div>
 
 <div id="viewer">
-<div id="close">Đóng</div>
-<iframe id="frame"></iframe>
+  <div id="close">Đóng</div>
+  <iframe id="frame"></iframe>
 </div>
 
 <script>
-
 const feeds = [
-
-{
-url:"https://vnexpress.net/rss/tin-moi-nhat.rss",
-name:"VnExpress"
-},
-
-{
-url:"https://tuoitre.vn/rss/tin-moi-nhat.rss",
-name:"Tuổi Trẻ"
-},
-
-{
-url:"https://thanhnien.vn/rss/home.rss",
-name:"Thanh Niên"
-}
-
+  {url:"https://vnexpress.net/rss/tin-moi-nhat.rss", name:"VnExpress"},
+  {url:"https://tuoitre.vn/rss/tin-moi-nhat.rss", name:"Tuổi Trẻ"},
+  {url:"https://thanhnien.vn/rss/home.rss", name:"Thanh Niên"},
+  {url:"https://zingnews.vn/rss/tin-noi-bat.rss", name:"Zing News"},
+  {url:"https://dantri.com.vn/trangchu.rss", name:"Dân Trí"},
+  {url:"https://vnreview.vn/rss/home.rss", name:"VNReview"},
+  {url:"https://cafebiz.vn/rss/home.rss", name:"CafeBiz"},
+  {url:"https://baomoi.com/rss/home.rss", name:"Báo Mới"},
 ];
 
+let articles = [];
+
 async function loadNews(){
-
-const container = document.getElementById("news");
-
-for(const feed of feeds){
-
-const url = "https://api.rss2json.com/v1/api.json?rss_url="+feed.url;
-
-const res = await fetch(url);
-const data = await res.json();
-
-data.items.slice(0,5).forEach(item=>{
-
-const div = document.createElement("div");
-div.className="article";
-
-div.innerHTML=
-`
-<div class="title">${item.title}</div>
-<div class="source">${feed.name}</div>
-`;
-
-div.onclick=()=>openNews(item.link);
-
-container.appendChild(div);
-
-});
-
+  const container = document.getElementById("news");
+  container.innerHTML="";
+  for(const feed of feeds){
+    const url = "https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(feed.url);
+    try{
+      const res = await fetch(url);
+      const data = await res.json();
+      data.items.slice(0,5).forEach(item=>{
+        const div = document.createElement("div");
+        div.className="article";
+        div.innerHTML=`
+          <img src="${item.thumbnail || 'https://via.placeholder.com/300x170?text=No+Image'}">
+          <div class="content">
+            <div class="title">${item.title}</div>
+            <div class="source">${feed.name}</div>
+          </div>
+        `;
+        div.onclick=()=>openNews(item.link);
+        container.appendChild(div);
+        articles.push({title:item.title, link:item.link, div:div});
+      });
+    }catch(e){
+      console.log("Lỗi feed:", feed.name);
+    }
+  }
 }
 
-}
-
+// Modal mở bài
 function openNews(url){
-
-document.getElementById("viewer").style.display="block";
-document.getElementById("frame").src=url;
-
+  document.getElementById("viewer").style.display="block";
+  document.getElementById("frame").src=url;
 }
-
 document.getElementById("close").onclick=function(){
-
-document.getElementById("viewer").style.display="none";
-document.getElementById("frame").src="";
-
+  document.getElementById("viewer").style.display="none";
+  document.getElementById("frame").src="";
 }
+
+// Search tin tức
+document.getElementById("search").addEventListener("input",function(){
+  const q = this.value.toLowerCase();
+  articles.forEach(a=>{
+    if(a.title.toLowerCase().includes(q)){
+      a.div.style.display="block";
+    }else{
+      a.div.style.display="none";
+    }
+  });
+});
 
 loadNews();
 
-</script>
+// Tự động cập nhật mỗi 5 phút
+setInterval(()=>{
+  articles=[];
+  loadNews();
+},300000);
 
+</script>
 </body>
 </html>
