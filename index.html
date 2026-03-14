@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Radar mưa Ninh Hòa</title>
+<title>Radar + Dự báo 3h</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
@@ -14,13 +14,13 @@
 body{
 margin:0;
 font-family:Arial;
-background:#051f2f;
+background:#0b2233;
 color:white;
 }
 
 header{
 text-align:center;
-padding:12px;
+padding:10px;
 font-size:20px;
 font-weight:bold;
 }
@@ -29,31 +29,8 @@ font-weight:bold;
 height:420px;
 }
 
-.controls{
-text-align:center;
-padding:10px;
-}
-
-button{
-padding:6px 14px;
-font-size:16px;
-margin:5px;
-}
-
-#timeline{
-width:90%;
-}
-
-#timeLabel{
-margin-top:5px;
-font-size:14px;
-}
-
-.alert{
-text-align:center;
-padding:8px;
-color:#ffcc00;
-font-weight:bold;
+#info{
+padding:15px;
 }
 
 table{
@@ -74,182 +51,126 @@ text-align:center;
 <body>
 
 <header>
-🌧 Radar mưa Ninh Hòa
+🌧 Radar + Dự báo 3 giờ
 </header>
 
 <div id="map"></div>
 
-<div class="controls">
+<div id="info">
 
-<button onclick="play()">▶ Play</button>
-<button onclick="pause()">⏸ Pause</button>
-
-<br><br>
-
-<input type="range" id="timeline" min="0" max="10" value="0">
-
-<div id="timeLabel"></div>
-
-</div>
-
-<div class="alert" id="rainAlert"></div>
-
-<h3 style="text-align:center">⏱ Dự báo radar</h3>
+<h3>📍 Thông tin thời tiết 3 giờ tới</h3>
 
 <table>
 
 <tr>
 <th>Thời gian</th>
+<th>Nhiệt độ</th>
+<th>Mưa</th>
+<th>Gió</th>
 <th>Trạng thái</th>
 </tr>
 
-<tbody id="forecast"></tbody>
+<tbody id="weatherTable"></tbody>
 
 </table>
+
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-const lat=12.55
-const lon=109.2
-const zoom=7
+// tạo map
 
-const map=L.map("map").setView([lat,lon],zoom)
+const map=L.map("map").setView([12.55,109.2],7)
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map)
+L.tileLayer(
+"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+).addTo(map)
 
-L.marker([lat,lon]).addTo(map).bindPopup("Ninh Hòa")
+let radarLayer
 
-let radarLayers=[]
-let frames=[]
-let frameIndex=0
-let animation=null
+// load radar
 
 fetch("https://api.rainviewer.com/public/weather-maps.json")
 
-.then(res=>res.json())
+.then(r=>r.json())
 
 .then(data=>{
 
 const host=data.host
 
-const past=data.radar.past
-const nowcast=data.radar.nowcast
+const frame=data.radar.past.slice(-1)[0]
 
-frames=[...past.slice(-6),...nowcast]
-
-document.getElementById("timeline").max=frames.length-1
-
-frames.forEach(frame=>{
-
-let layer=L.tileLayer(
+radarLayer=L.tileLayer(
 host+frame.path+"/256/{z}/{x}/{y}/2/1_1.png",
 {opacity:0.6}
 )
 
-radarLayers.push(layer)
+radarLayer.addTo(map)
 
 })
 
-radarLayers[0].addTo(map)
+// click map lấy vị trí
 
-updateTime(0)
+map.on("click",function(e){
 
-createTable(frames)
+const lat=e.latlng.lat
+const lon=e.latlng.lng
 
-checkRain(frames)
-
-})
-
-function showFrame(i){
-
-radarLayers.forEach(l=>map.removeLayer(l))
-
-radarLayers[i].addTo(map)
-
-updateTime(i)
-
-document.getElementById("timeline").value=i
-
-}
-
-document.getElementById("timeline").addEventListener("input",function(){
-
-frameIndex=this.value
-showFrame(frameIndex)
+loadWeather(lat,lon)
 
 })
 
-function updateTime(i){
+// lấy dự báo
 
-let t=new Date(frames[i].time*1000)
+function loadWeather(lat,lon){
 
-document.getElementById("timeLabel").innerText="Thời gian: "+t.toLocaleTimeString()
+fetch(
+`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation,weathercode,windspeed_10m&forecast_days=1`
+)
 
-}
+.then(r=>r.json())
 
-function play(){
+.then(data=>{
 
-if(animation)return
+let table=document.getElementById("weatherTable")
 
-animation=setInterval(()=>{
+table.innerHTML=""
 
-frameIndex++
+let hours=data.hourly.time
 
-if(frameIndex>=radarLayers.length){
-frameIndex=0
-}
+for(let i=0;i<3;i++){
 
-showFrame(frameIndex)
+let time=new Date(hours[i])
 
-},700)
+let temp=data.hourly.temperature_2m[i]
 
-}
+let rain=data.hourly.precipitation[i]
 
-function pause(){
+let wind=data.hourly.windspeed_10m[i]
 
-clearInterval(animation)
-animation=null
+let status="Nắng"
 
-}
-
-function createTable(frames){
-
-let table=document.getElementById("forecast")
-
-frames.forEach(frame=>{
-
-let time=new Date(frame.time*1000)
-
-let status="Không mưa"
-
-if(frame.path.includes("radar")){
-status="Có khả năng mưa"
+if(rain>0){
+status="Mưa"
 }
 
 let row=`
 <tr>
 <td>${time.toLocaleTimeString()}</td>
+<td>${temp}°C</td>
+<td>${rain} mm</td>
+<td>${wind} km/h</td>
 <td>${status}</td>
 </tr>
 `
 
 table.innerHTML+=row
 
+}
+
 })
-
-}
-
-function checkRain(frames){
-
-let alert=document.getElementById("rainAlert")
-
-if(frames.length>6){
-alert.innerText="⚠ Radar cho thấy có khả năng mưa trong ~2 giờ tới"
-}else{
-alert.innerText=""
-}
 
 }
 
