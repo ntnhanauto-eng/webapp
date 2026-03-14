@@ -101,11 +101,17 @@ fetch("https://api.rainviewer.com/public/weather-maps.json")
 
 const host=data.host
 
-const nowcast=data.radar.nowcast
+let frames = []
+
+if(data.radar.nowcast && data.radar.nowcast.length>0){
+frames = data.radar.nowcast
+}else{
+frames = data.radar.past.slice(-6)
+}
 
 let html=""
 
-nowcast.forEach(frame=>{
+frames.forEach(frame=>{
 
 const tileLayer=L.tileLayer(
 `${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,
@@ -127,7 +133,7 @@ let date=new Date(frame.time*1000)
 html+=`
 <tr>
 <td>${date.toLocaleTimeString()}</td>
-<td>Dự báo radar</td>
+<td>Khả năng mưa</td>
 </tr>
 `
 
