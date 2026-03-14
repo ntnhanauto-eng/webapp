@@ -1,47 +1,49 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Radar mưa + dự báo</title>
+<title>Radar mưa + dự báo 2h</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
 <style>
 
 body{
 margin:0;
 font-family:Arial;
-background:#0b1e2d;
+background:#062338;
 color:white;
-text-align:center;
 }
 
 header{
-background:#082033;
-padding:10px;
+background:#062338;
+text-align:center;
+padding:12px;
 font-size:20px;
+font-weight:bold;
 }
 
 #map{
-width:100%;
-height:60vh;
-}
-
-#forecast{
-padding:15px;
+height:420px;
 }
 
 table{
 width:100%;
 border-collapse:collapse;
+margin-top:10px;
 }
 
 th,td{
 padding:10px;
 border-bottom:1px solid rgba(255,255,255,0.2);
+text-align:center;
+}
+
+.section{
+padding:10px;
 }
 
 </style>
@@ -50,30 +52,30 @@ border-bottom:1px solid rgba(255,255,255,0.2);
 
 <body>
 
-<header>🌧 Radar mưa + dự báo ~2h</header>
+<header>
+🌧 Radar mưa + dự báo 2h
+</header>
 
 <div id="map"></div>
 
-<div id="forecast">
+<div class="section">
 
 <h3>⏱ Dự báo radar</h3>
 
 <table>
 
-<thead>
 <tr>
 <th>Thời gian</th>
 <th>Trạng thái radar</th>
 </tr>
-</thead>
 
-<tbody id="radarTable"></tbody>
+<tbody id="forecast"></tbody>
 
 </table>
 
 </div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
@@ -81,17 +83,13 @@ const lat = 12.55
 const lon = 109.2
 const zoom = 7
 
-const map = L.map('map',{
-minZoom:3,
-maxZoom:10
-}).setView([lat,lon],zoom)
+const map = L.map("map").setView([lat,lon],zoom)
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-maxZoom:10
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+maxZoom:18
 }).addTo(map)
 
-let radarLayers=[]
-let framePosition=0
+let radarLayer=null
 
 fetch("https://api.rainviewer.com/public/weather-maps.json")
 
@@ -101,72 +99,53 @@ fetch("https://api.rainviewer.com/public/weather-maps.json")
 
 const host=data.host
 
-let frames = []
+const past=data.radar.past
+const nowcast=data.radar.nowcast
 
-if(data.radar.nowcast && data.radar.nowcast.length>0){
-frames = data.radar.nowcast
-}else{
-frames = data.radar.past.slice(-6)
-}
+let frames=[...past.slice(-6),...nowcast]
 
-let html=""
+let lastFrame=frames[frames.length-1]
+
+let path=host+lastFrame.path+"/256/{z}/{x}/{y}/2/1_1.png"
+
+radarLayer=L.tileLayer(path,{
+opacity:0.7
+})
+
+radarLayer.addTo(map)
+
+createTable(frames)
+
+})
+
+function createTable(frames){
+
+let table=document.getElementById("forecast")
 
 frames.forEach(frame=>{
 
-const tileLayer=L.tileLayer(
-`${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,
-{
-tileSize:256,
-opacity:0,
-maxZoom:10
-})
+let time=new Date(frame.time*1000)
 
-radarLayers.push({
-layer:tileLayer,
-time:frame.time
-})
+let status="Không mưa"
 
-tileLayer.addTo(map)
+if(frame.path.includes("radar")){
+status="Có khả năng mưa"
+}
 
-let date=new Date(frame.time*1000)
-
-html+=`
+let row=`
 <tr>
-<td>${date.toLocaleTimeString()}</td>
-<td>Khả năng mưa</td>
+<td>${time.toLocaleTimeString()}</td>
+<td>${status}</td>
 </tr>
 `
 
-})
-
-document.getElementById("radarTable").innerHTML=html
-
-animate()
+table.innerHTML+=row
 
 })
-
-function animate(){
-
-setInterval(()=>{
-
-radarLayers.forEach(f=>f.layer.setOpacity(0))
-
-let frame=radarLayers[framePosition]
-
-frame.layer.setOpacity(0.8)
-
-framePosition++
-
-if(framePosition>=radarLayers.length){
-framePosition=0
-}
-
-},800)
 
 }
 
 </script>
 
 </body>
-
 </html>
