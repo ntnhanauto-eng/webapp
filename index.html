@@ -116,6 +116,21 @@ loadData();
 // 🔄 auto refresh mỗi 10 giây
 setInterval(loadData, 10000);
 
+const express = require("express");
+const fetch = require("node-fetch");
+
+const app = express();
+
+app.get("/api", async (req, res) => {
+  const r = await fetch("http://e15.thuyloivietnam.vn/AnToan/ATView");
+  const data = await r.text();
+  res.send(data);
+});
+
+app.listen(3000);
+
+
+  
 </script>
 
 </body>
