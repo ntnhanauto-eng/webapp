@@ -13,6 +13,41 @@
             to { opacity: 1; }
         }
 
+ body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: radial-gradient(circle at center, #2c3e50 0%, #0f171e 100%);
+            min-height: 100vh;
+        }
+
+       /* --- HEADER THẤP VÀ GỌN GÀNG --- */
+.header {
+    width: 100%;
+    /* Màu xanh lá sáng chuyên nghiệp */
+    background: linear-gradient(90deg, #2ecc71, #27ae60);
+    text-align: center;
+    /* Giảm padding từ 25px xuống 12px để header thấp hơn */
+    padding: 12px 0; 
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.header-title {
+    /* Giảm cỡ chữ xuống một chút để cân đối với độ cao mới */
+    font-size: 24px; 
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #ffffff;
+    text-transform: uppercase;
+    margin: 0;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+
+        
+
 /* Điều chỉnh lại khoảng cách của Grid để không bị sát Header quá */
 .grid {
     display: grid;
