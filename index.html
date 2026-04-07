@@ -23,6 +23,144 @@
     margin: 0 auto;
     justify-content: center;
 }
+
+ .item {
+            text-decoration: none;
+            color: white;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .icon {
+            width: 100px;
+            height: 100px;
+            border-radius: 24px; 
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .label {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .item:hover .icon {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 15px 35px rgba(46, 204, 113, 0.4); /* Đổ bóng màu xanh nhẹ khi hover */
+        }
+
+        @media (max-width: 768px) {
+            .header-title { font-size: 26px; }
+            .grid { grid-template-columns: repeat(auto-fit, 100px); gap: 25px; }
+            .icon { width: 85px; height: 85px; }
+        }
+
+/* Container chứa tiêu đề và nút share */
+.header-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Căn giữa tiêu đề */
+    position: relative; /* Để nút share có thể căn tuyệt đối theo container */
+    padding: 0 15px;
+}
+
+.share-btn {
+    position: absolute;
+    right: 15px; /* Đẩy sát lề phải */
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.share-btn:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.share-btn svg {
+    display: block;
+}
+
+.footer {
+    width: 100%;
+    padding: 30px 0;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.6); /* Màu trắng mờ tinh tế */
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1); /* Đường kẻ ngang mờ */
+    margin-top: 20px;
+}
+
+.footer strong {
+    color: #2ecc71; /* Làm nổi bật tên của bạn bằng màu xanh chủ đạo */
+    font-weight: 600;
+}
+
+
+.divider-text {
+    width: 85%;
+    margin: 25px auto 10px;
+    text-align: center;
+    position: relative;
+}
+
+.divider-text::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        rgba(255,255,255,0.25),
+        transparent
+    );
+}
+
+.divider-text span {
+    background: #0f171e;
+    padding: 0 18px;
+    position: relative;
+    color: #2ecc71;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+}
+
+
+
+
+
+
         
     </style>
 </head>
