@@ -1,4 +1,48 @@
- <!-- Giao diện Trang chủ (Index) -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Truy Cập</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden-section { display: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+    <!-- Giao diện Đăng nhập -->
+    <div id="login-page" class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">Đăng Nhập Hệ Thống</h1>
+            <div id="login-error" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded text-sm"></div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tên đăng nhập</label>
+                    <input type="text" id="username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="admin hoặc user">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Mật khẩu</label>
+                    <input type="password" id="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="123456">
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">Đăng Nhập</button>
+            </div>
+            
+            <div class="mt-6 text-xs text-center text-gray-500">
+                <p>Tài khoản thử nghiệm:</p>
+                <p>Admin: admin / 123456</p>
+                <p>User: user / 123456</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Giao diện Trang chủ (Index) -->
     <div id="index-page" class="hidden min-h-screen flex flex-col">
         <!-- Header -->
         <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
