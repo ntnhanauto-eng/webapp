@@ -12,6 +12,18 @@
             from { opacity: 0; }
             to { opacity: 1; }
         }
+
+/* Điều chỉnh lại khoảng cách của Grid để không bị sát Header quá */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 120px);
+    gap: 35px;
+    padding: 40px 20px; /* Giảm padding top của grid */
+    max-width: 1000px; 
+    margin: 0 auto;
+    justify-content: center;
+}
+        
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans">
