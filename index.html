@@ -1,137 +1,181 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mực nước hồ</title>
+ <!-- Giao diện Trang chủ (Index) -->
+    <div id="index-page" class="hidden min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="text-xl font-bold text-blue-600">MySystem</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-right">
+                    <p class="text-sm font-semibold text-gray-800" id="display-name"></p>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider" id="display-role"></p>
+                </div>
+                <button onclick="handleLogout()" class="bg-red-50 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-100 border border-red-200 text-sm font-medium transition duration-200">
+                    Đăng xuất
+                </button>
+            </div>
+        </header>
 
-<style>
-body {
-  background: #2c3e50;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  font-family: Arial, sans-serif;
-}
+        <!-- Main Content -->
+        <main class="flex-grow p-6 max-w-4xl mx-auto w-full">
+            <div class="bg-white p-6 rounded-lg shadow-sm mb-6 fade-in">
+                <h2 class="text-xl font-bold mb-4">Chào mừng trở lại!</h2>
+                <p class="text-gray-600">Phiên làm việc của bạn sẽ tự động kết thúc sau 5 phút nếu không có hoạt động.</p>
+            </div>
 
-/* Box */
-.box {
-  width: 160px;
-  background: #ecf0f1;
-  border-radius: 10px;
-  padding: 15px;
-  text-align: center;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-}
+            <!-- Khu vực chung cho cả User và Admin -->
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
+                    <h3 class="font-bold text-lg mb-2">Thông tin công việc</h3>
+                    <p class="text-sm text-gray-600">Đây là khu vực mà mọi tài khoản đăng nhập đều có thể xem được.</p>
+                </div>
 
-/* Title */
-.title {
-  color: #3498db;
-  font-size: 16px;
-  margin-bottom: 5px;
-}
+                <!-- Khu vực CHỈ dành cho Admin -->
+                <div id="admin-only-section" class="hidden bg-white p-6 rounded-lg shadow-sm border-l-4 border-purple-500">
+                    <h3 class="font-bold text-lg mb-2 text-purple-700">Báo cáo Quản trị (Admin Only)</h3>
+                    <ul class="text-sm text-gray-600 list-disc ml-5 space-y-1">
+                        <li>Xem danh sách người dùng</li>
+                        <li>Chỉnh sửa cài đặt hệ thống</li>
+                        <li>Xem doanh thu chi tiết</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+        
+        <footer class="p-4 text-center text-gray-400 text-xs">
+            &copy; 2024 Secure Login System
+        </footer>
+    </div>
 
-/* Value */
-.value {
-  font-size: 48px;
-  color: red;
-  font-weight: bold;
-}
+    <script>
+        // Cấu hình tài khoản giả lập
+        const USERS_DB = [
+            { username: 'admin', password: '123456', role: 'admin', name: 'Quản Trị Viên' },
+            { username: 'user', password: '123456', role: 'user', name: 'Thành Viên Thường' }
+        ];
 
-/* Unit */
-.unit {
-  font-size: 14px;
-  color: #555;
-}
+        const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 phút (ms)
+        let inactivityTimer;
 
-/* trạng thái */
-.status {
-  margin-top: 8px;
-  font-size: 13px;
-  font-weight: bold;
-}
-</style>
+        // 1. Kiểm tra trạng thái khi tải trang
+        window.onload = () => {
+            checkSession();
+            setupInactivityTracker();
+        };
 
-</head>
-<body>
+        function checkSession() {
+            const session = JSON.parse(localStorage.getItem('userSession'));
+            
+            if (!session) {
+                showPage('login');
+                return;
+            }
 
-<div class="box">
-  <div class="title">Mực nước</div>
-  <div class="value" id="water">--</div>
-  <div class="unit">h</div>
-  <div class="status" id="status">Đang tải...</div>
-</div>
+            // Kiểm tra thời gian hết hạn
+            const now = new Date().getTime();
+            if (now > session.expiry) {
+                alert("Phiên đăng nhập đã hết hạn (5 phút). Vui lòng đăng nhập lại.");
+                handleLogout();
+                return;
+            }
 
-<script>
+            // Nếu hợp lệ, hiển thị trang chủ
+            renderIndex(session);
+        }
 
-// 👉 THAY URL NÀY bằng API thật bạn copy từ DevTools
-const API_URL = "http://e15.thuyloivietnam.vn/AnToan/ATView";
+        // 2. Xử lý Đăng nhập
+        function handleLogin() {
+            const userInp = document.getElementById('username').value;
+            const passInp = document.getElementById('password').value;
+            const errorDiv = document.getElementById('login-error');
 
-function loadData() {
-  fetch(API_URL, {
-    credentials: "include" // cần nếu API dùng cookie
-  })
-  .then(res => res.json())
-  .then(data => {
+            const user = USERS_DB.find(u => u.username === userInp && u.password === passInp);
 
-    // 🔥 Lấy mực nước
-    const item = data.find(i => i.name === "ATCBMNHo");
+            if (user) {
+                const expiryTime = new Date().getTime() + SESSION_TIMEOUT;
+                const sessionData = {
+                    username: user.username,
+                    name: user.name,
+                    role: user.role,
+                    expiry: expiryTime
+                };
 
-    if (!item) {
-      document.getElementById("status").innerText = "Không có dữ liệu";
-      return;
-    }
+                localStorage.setItem('userSession', JSON.stringify(sessionData));
+                errorDiv.classList.add('hidden');
+                renderIndex(sessionData);
+            } else {
+                errorDiv.textContent = "Sai tên đăng nhập hoặc mật khẩu!";
+                errorDiv.classList.remove('hidden');
+            }
+        }
 
-    const value = item.count;
+        // 3. Hiển thị nội dung trang Index dựa trên phân quyền
+        function renderIndex(session) {
+            document.getElementById('display-name').textContent = session.name;
+            document.getElementById('display-role').textContent = `Quyền: ${session.role}`;
+            
+            // Phân quyền hiển thị
+            const adminSection = document.getElementById('admin-only-section');
+            if (session.role === 'admin') {
+                adminSection.classList.remove('hidden');
+            } else {
+                adminSection.classList.add('hidden');
+            }
 
-    // hiển thị
-    document.getElementById("water").innerText = value;
+            showPage('index');
+            resetInactivityTimer(); // Làm mới timer khi vừa login xong
+        }
 
-    // 👉 đổi màu cảnh báo
-    let statusText = "Bình thường";
-    let color = "green";
+        // 4. Xử lý Đăng xuất
+        function handleLogout() {
+            localStorage.removeItem('userSession');
+            clearTimeout(inactivityTimer);
+            showPage('login');
+            // Xóa form cũ
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
 
-    if (value > 80) {
-      statusText = "Nguy hiểm";
-      color = "red";
-    } else if (value > 60) {
-      statusText = "Cảnh báo";
-      color = "orange";
-    }
+        // 5. Chuyển đổi giữa các trang (spa logic)
+        function showPage(pageId) {
+            const loginPage = document.getElementById('login-page');
+            const indexPage = document.getElementById('index-page');
 
-    document.getElementById("status").innerText = statusText;
-    document.getElementById("status").style.color = color;
+            if (pageId === 'login') {
+                loginPage.classList.remove('hidden');
+                indexPage.classList.add('hidden');
+            } else {
+                loginPage.classList.add('hidden');
+                indexPage.classList.remove('hidden');
+            }
+        }
 
-  })
-  .catch(err => {
-    console.error(err);
-    document.getElementById("status").innerText = "Lỗi tải dữ liệu";
-  });
-}
+        // 6. Quản lý thời gian không hoạt động (Inactivity Tracker)
+        function setupInactivityTracker() {
+            // Các sự kiện tính là đang hoạt động
+            const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+            
+            events.forEach(name => {
+                document.addEventListener(name, resetInactivityTimer, true);
+            });
+        }
 
-// load lần đầu
-loadData();
+        function resetInactivityTimer() {
+            const session = JSON.parse(localStorage.getItem('userSession'));
+            if (!session) return;
 
-// 🔄 auto refresh mỗi 10 giây
-setInterval(loadData, 10000);
+            // Cập nhật lại thời gian hết hạn trong localStorage khi có hoạt động
+            const newExpiry = new Date().getTime() + SESSION_TIMEOUT;
+            session.expiry = newExpiry;
+            localStorage.setItem('userSession', JSON.stringify(session));
 
-const express = require("express");
-const fetch = require("node-fetch");
-
-const app = express();
-
-app.get("/api", async (req, res) => {
-  const r = await fetch("http://e15.thuyloivietnam.vn/AnToan/ATView");
-  const data = await r.text();
-  res.send(data);
-});
-
-app.listen(3000);
-
-
-  
-</script>
-
+            // Thiết lập timer để tự động logout nếu không làm gì thêm
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                alert("Bạn đã không hoạt động quá 5 phút. Hệ thống tự động đăng xuất.");
+                handleLogout();
+            }, SESSION_TIMEOUT);
+        }
+    </script>
 </body>
 </html>
