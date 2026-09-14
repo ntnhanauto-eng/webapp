@@ -1113,7 +1113,7 @@ foreach ($raw_schedules as $row) {
         // --- KIỂM TRA MƯA NĂNG ĐỘNG CÓ MỐC THỜI GIAN CỤ THỂ ---
         async function checkRainAlert() {
             try {
-                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=21.0285&longitude=105.8542&hourly=precipitation,precipitation_probability', { cache: 'no-store' });
+                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=12.494468&longitude=109.1247379&hourly=precipitation,precipitation_probability', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     const now = new Date();
