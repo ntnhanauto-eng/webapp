@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS `schedule_todos` (
+  `slot_key` varchar(100) NOT NULL,
+  `type` varchar(20) NOT NULL,
+  `content` varchar(255) NOT NULL,
+  `expire_at` bigint(20) NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`slot_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
