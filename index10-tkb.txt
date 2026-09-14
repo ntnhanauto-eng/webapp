@@ -961,11 +961,11 @@ foreach ($raw_schedules as $row) {
         <div class="backpack-list" id="backpackItemsList"></div>
     </div>
 
-    <!-- 4. WIDGET THÔNG BÁO TIẾT HỌC ĐỘNG (KÈM RAIN & STORM ALERT) -->
+    <!-- 4. WIDGET THÔNG BÁO TIẾT HỌC ĐỘNG (CÓ CẢNH BÁO MƯA KÈM MỐC THỜI GIAN) -->
     <div class="upcoming-widget" id="upcomingWidget">
         <div id="rainAlertBox" style="display:none; margin-bottom: 8px; background: rgba(59, 130, 246, 0.18); border: 1px solid #60a5fa; color: #93c5fd; padding: 8px 12px; border-radius: 12px; font-size: 11.5px; font-weight: 700; align-items: center; gap: 8px;">
             <i class="fa-solid fa-cloud-showers-heavy" style="color: #60a5fa; font-size: 14px; flex-shrink: 0;"></i>
-            <span>Cảnh báo mưa: Khả năng có mưa vào giờ tan trường chiều nay. Nhớ mang ô hoặc áo mưa cho con!</span>
+            <span id="rainAlertText">Cảnh báo mưa: Khả năng có mưa vào giờ tan trường. Nhớ mang ô hoặc áo mưa cho con!</span>
         </div>
     </div>
 
@@ -1110,32 +1110,38 @@ foreach ($raw_schedules as $row) {
         let currentDay = realTodayKey;
         let currentSubjectFilter = 'ALL';
 
-        // --- KIỂM TRA MƯA NĂNG ĐỘNG (RAIN & STORM ALERT) ---
+        // --- KIỂM TRA MƯA NĂNG ĐỘNG CÓ MỐC THỜI GIAN CỤ THỂ ---
         async function checkRainAlert() {
             try {
-                // Open-Meteo API lấy dữ liệu thời tiết miễn phí không cần key (Hà Nội, VN)
                 const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=21.0285&longitude=105.8542&hourly=precipitation,precipitation_probability', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     const now = new Date();
                     const currentHour = now.getHours();
-                    let rainExpected = false;
+                    let rainStartTime = null;
+                    let rainEndTime = null;
                     
                     if (data.hourly && data.hourly.precipitation && data.hourly.time) {
                         for (let i = 0; i < data.hourly.time.length; i++) {
                             const forecastTime = new Date(data.hourly.time[i]);
-                            // Kiểm tra khung giờ chiều từ 15:00 đến 18:00 (thời điểm tan trường)
+                            // Quét khung giờ chiều từ 15:00 đến 18:00
                             if (forecastTime.getDate() === now.getDate() && forecastTime.getHours() >= 15 && forecastTime.getHours() <= 18) {
                                 if (data.hourly.precipitation[i] > 0.2 || (data.hourly.precipitation_probability && data.hourly.precipitation_probability[i] > 60)) {
-                                    rainExpected = true;
-                                    break;
+                                    if (!rainStartTime) {
+                                        rainStartTime = String(forecastTime.getHours()).padStart(2, '0') + ':00';
+                                    }
+                                    // Giả định cơn mưa kéo dài qua mỗi mốc giờ có dữ liệu mưa
+                                    rainEndTime = String(forecastTime.getHours() + 1).padStart(2, '0') + ':00';
                                 }
                             }
                         }
                     }
+
                     const alertBox = document.getElementById('rainAlertBox');
-                    if (alertBox) {
-                        if (rainExpected && currentHour < 18) {
+                    const alertText = document.getElementById('rainAlertText');
+                    if (alertBox && alertText) {
+                        if (rainStartTime && currentHour < 18) {
+                            alertText.innerHTML = `<b>Cảnh báo mưa:</b> Dự báo có mưa tại khu vực trường học vào khoảng từ <b>${rainStartTime} đến ${rainEndTime}</b>. Nhớ chuẩn bị ô hoặc áo mưa cho con!`;
                             alertBox.style.display = 'flex';
                         } else {
                             alertBox.style.display = 'none';
@@ -2355,7 +2361,6 @@ foreach ($raw_schedules as $row) {
                 `;
             });
 
-            // Giữ lại phần cảnh báo mưa phía trên các widget con nếu có
             const rainBoxHtml = document.getElementById('rainAlertBox').outerHTML;
             widget.innerHTML = rainBoxHtml + html;
         }
@@ -2430,7 +2435,7 @@ foreach ($raw_schedules as $row) {
             });
         }
 
-        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ API (HỖ TRỢ ĐỒNG BỘ CẢ XÓA HUY HIỆU)
+        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ API
         async function syncDataFromServer() {
             if (!navigator.onLine) {
                 return false;
@@ -2448,7 +2453,6 @@ foreach ($raw_schedules as $row) {
                         teachersMap = data.teachers_map;
                         appSettings = data.settings;
 
-                        // Thay thế hoàn toàn danh sách từ Server để đồng bộ cả hành động XÓA
                         if (data.todo_tags !== undefined && typeof data.todo_tags === 'object') {
                             localStorage.setItem('tkb_todo_tags', JSON.stringify(data.todo_tags));
                         }
@@ -2498,7 +2502,7 @@ foreach ($raw_schedules as $row) {
         renderSubjectFilters();
         renderBackpackAssistant();
         renderLandscapeGrid();
-        checkRainAlert(); // Kiểm tra thời tiết mưa ngầm
+        checkRainAlert();
         if (navigator.onLine) {
             syncDataFromServer();
         }
