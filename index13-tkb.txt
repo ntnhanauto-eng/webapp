@@ -547,7 +547,7 @@ foreach ($raw_schedules as $row) {
             padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;
         }
 
-        /* KHUNG THỜI GIAN TIẾT HỌC: TIẾT NẰM TRÊN, GIỜ BẮT ĐẦU - KẾT THÚC CỐ ĐỊNH TRÊN 1 DÒNG NẰM DƯỚI */
+        /* KHUNG THỜI GIAN TIẾT HỌC */
         .time-box-right { 
             text-align: right; 
             white-space: nowrap; 
@@ -967,6 +967,7 @@ foreach ($raw_schedules as $row) {
             <i class="fa-solid fa-cloud-showers-heavy" style="color: #60a5fa; font-size: 14px; flex-shrink: 0;"></i>
             <span id="rainAlertText">Cảnh báo mưa: Dự báo có mưa vào giờ tan trường của con. Nhớ mang ô hoặc áo mưa nhé!</span>
         </div>
+        <div id="widgetItemsContainer"></div>
     </div>
 
     <!-- 5. DANH SÁCH DÒNG THỜI GIAN DỌC -->
@@ -1325,10 +1326,15 @@ foreach ($raw_schedules as $row) {
             }
         }
 
-        // --- 3. ĐỒNG BỘ GHI CHÚ HUY HIỆU LÊN ĐÁM MÂY ---
+        // --- 3. ĐỒNG BỘ GHI CHÚ HUY HIỆU LÊN ĐÁM MÂY (ĐÃ SỬA LỖI OBJECT THUẦN) ---
         function getTodoTags() {
             try {
-                const data = JSON.parse(localStorage.getItem('tkb_todo_tags') || '{}');
+                const raw = localStorage.getItem('tkb_todo_tags');
+                let data = raw ? JSON.parse(raw) : {};
+                // Chuẩn hóa tuyệt đối: Nếu là Array [] hoặc null thì ép về Object thuần {}
+                if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                    data = {};
+                }
                 const now = Date.now();
                 let hasChange = false;
                 
@@ -1350,10 +1356,11 @@ foreach ($raw_schedules as $row) {
         async function syncTodoTagsToCloud(tags) {
             if (!navigator.onLine) return;
             try {
+                const safeTags = (tags && typeof tags === 'object' && !Array.isArray(tags)) ? tags : {};
                 await fetch('api.php?action=sync_todo', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ todo_tags: tags })
+                    body: JSON.stringify({ todo_tags: safeTags })
                 });
             } catch (e) {
                 console.log('Lưu cloud ngầm: offline hoặc server bận');
@@ -1369,10 +1376,10 @@ foreach ($raw_schedules as $row) {
             }
 
             document.getElementById('todoSlotKey').value = slotKey;
-            document.getElementById('todoKidId').value = kidId || '1';
+            document.getElementById('todoKidId').value = String(kidId || '1');
             document.getElementById('todoModalSubjectTitle').innerHTML = `<i class="fa-solid fa-book-open"></i> Môn: <b>${subjectName}</b>`;
             
-            const kidName = (kidId === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
+            const kidName = (String(kidId) === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
             document.getElementById('todoModalKidOwner').innerText = `Tiết học của bé: ${kidName}`;
             document.getElementById('todoPassHintText').innerText = `Yêu cầu mật khẩu của bé ${kidName} hoặc mật khẩu Admin.`;
             
@@ -1410,7 +1417,7 @@ foreach ($raw_schedules as $row) {
             }
 
             let targetPass = '';
-            if (kidId === '2') {
+            if (String(kidId) === '2') {
                 targetPass = String(appSettings.kid2_pass || '123456').trim();
             } else {
                 targetPass = String(appSettings.kid1_pass || '123456').trim();
@@ -1461,7 +1468,11 @@ foreach ($raw_schedules as $row) {
                 expireAt = sunday.getTime();
             }
 
-            const tags = getTodoTags();
+            let tags = getTodoTags();
+            if (!tags || typeof tags !== 'object' || Array.isArray(tags)) {
+                tags = {};
+            }
+
             tags[key] = {
                 type: type,
                 content: content,
@@ -1491,8 +1502,8 @@ foreach ($raw_schedules as $row) {
                 return;
             }
 
-            const tags = getTodoTags();
-            if (tags[key]) {
+            let tags = getTodoTags();
+            if (tags && typeof tags === 'object' && !Array.isArray(tags) && tags[key]) {
                 delete tags[key];
                 localStorage.setItem('tkb_todo_tags', JSON.stringify(tags));
                 syncTodoTagsToCloud(tags);
@@ -1656,7 +1667,7 @@ foreach ($raw_schedules as $row) {
                 if (rData) rawSchedules = JSON.parse(rData);
                 if (tData) teachersMap = JSON.parse(tData);
                 if (setts) {
-                    appSettings = JSON.parse(setts);
+                    appSettings = Object.assign({}, appSettings, JSON.parse(setts));
                     updateHeaderNames();
                 }
             } catch (e) {
@@ -1864,7 +1875,7 @@ foreach ($raw_schedules as $row) {
 
                 const isKid1 = item.be_id === '1';
                 const kidLabel = isKid1 ? (appSettings.kid1_name || 'Trâm Anh') : (appSettings.kid2_name || 'Thành Phát');
-                const teacherObjStr = item.teacher ? encodeURIComponent(JSON.stringify(item.teacher)) : '';
+                const teacherObjStr = item.teacher ? encodeURIComponent(JSON.stringify(item.teacher)).replace(/'/g, "%27") : '';
 
                 let isCurrentSlot = false;
                 let isPastSlot = false;
@@ -1886,7 +1897,8 @@ foreach ($raw_schedules as $row) {
                 const cardDomId = `slot-card-${item.id}-${item.be_id}-${item.day}`;
                 const slotTagKey = `${item.id}_${item.be_id}_${item.day}`;
                 const existingTag = todoTags[slotTagKey];
-                const encSubject = encodeURIComponent(item.subject || '');
+                // Chuẩn hóa mã hóa tên môn tránh vỡ cú pháp JS
+                const safeSubEnc = encodeURIComponent(item.subject || '').replace(/'/g, "%27");
 
                 const tagTypeLabels = {
                     btvn: '📝 BTVN',
@@ -1925,24 +1937,24 @@ foreach ($raw_schedules as $row) {
                         ` : ''}
 
                         <div class="subject-line-row">
-                            <div class="subject-title-link" onclick="openTodoTagModal('${slotTagKey}', '${encSubject}', '${item.be_id}')">
+                            <div class="subject-title-link" onclick="openTodoTagModal('${slotTagKey}', '${safeSubEnc}', '${item.be_id}')">
                                 <span>${item.subject}</span>
                             </div>
 
                             ${item.teacher ? `
-                                <button type="button" class="teacher-tag-btn" onclick="event.stopPropagation(); showTeacherDetails('${encSubject}', '${teacherObjStr}')">
+                                <button type="button" class="teacher-tag-btn" onclick="event.stopPropagation(); showTeacherDetails('${safeSubEnc}', '${teacherObjStr}')">
                                     <i class="fa-solid fa-user-tie"></i> ${item.teacher.teacher_name}
                                 </button>
                             ` : ''}
                         </div>
 
                         ${existingTag ? `
-                            <div class="custom-todo-badge todo-type-${existingTag.type}" onclick="openTodoTagModal('${slotTagKey}', '${encSubject}', '${item.be_id}')">
+                            <div class="custom-todo-badge todo-type-${existingTag.type}" onclick="openTodoTagModal('${slotTagKey}', '${safeSubEnc}', '${item.be_id}')">
                                 <span><b>${tagTypeLabels[existingTag.type] || '📌'}:</b> ${existingTag.content}</span>
                                 <i class="fa-solid fa-pen-to-square" style="font-size:11px; opacity:0.7;"></i>
                             </div>
                         ` : `
-                            <button type="button" class="add-badge-btn" onclick="openTodoTagModal('${slotTagKey}', '${encSubject}', '${item.be_id}')">
+                            <button type="button" class="add-badge-btn" onclick="openTodoTagModal('${slotTagKey}', '${safeSubEnc}', '${item.be_id}')">
                                 <i class="fa-solid fa-plus"></i> Thêm bài tập / kiểm tra
                             </button>
                         `}
@@ -2043,7 +2055,7 @@ foreach ($raw_schedules as $row) {
                                 let note = lines.slice(1).join(' ').trim();
                                 let teacherId = row['t_' + dk] || null;
                                 let teacherObj = (teacherId && teachersMap[teacherId]) ? teachersMap[teacherId] : null;
-                                let teacherObjStr = teacherObj ? encodeURIComponent(JSON.stringify(teacherObj)) : '';
+                                let teacherObjStr = teacherObj ? encodeURIComponent(JSON.stringify(teacherObj)).replace(/'/g, "%27") : '';
 
                                 let currentCellItem = {
                                     buoi: row.buoi,
@@ -2068,7 +2080,7 @@ foreach ($raw_schedules as $row) {
                                         <div class="grid-sub-box ${isCurrentSlot ? 'is-current-slot' : ''} ${isPastSlot ? 'is-past-slot' : ''}">
                                             <div class="grid-sub-title">${subject}</div>
                                             ${teacherObj ? `
-                                                <div class="grid-sub-teacher" onclick="event.stopPropagation(); showTeacherDetails('${encodeURIComponent(subject)}', '${teacherObjStr}')">
+                                                <div class="grid-sub-teacher" onclick="event.stopPropagation(); showTeacherDetails('${encodeURIComponent(subject).replace(/'/g, "%27")}', '${teacherObjStr}')">
                                                     <i class="fa-solid fa-user-tie"></i> ${teacherObj.teacher_name}
                                                 </div>
                                             ` : ''}
@@ -2374,6 +2386,7 @@ foreach ($raw_schedules as $row) {
 
         function updateDynamicWidget() {
             const widget = document.getElementById('upcomingWidget');
+            const container = document.getElementById('widgetItemsContainer');
 
             if (currentDay !== realTodayKey) {
                 widget.style.display = 'none';
@@ -2413,9 +2426,9 @@ foreach ($raw_schedules as $row) {
                 `;
             });
 
-            const rainBox = document.getElementById('rainAlertBox');
-            const rainBoxHtml = rainBox ? rainBox.outerHTML : '';
-            widget.innerHTML = rainBoxHtml + html;
+            if (container) {
+                container.innerHTML = html;
+            }
         }
 
         // VUỐT MÀN HÌNH ĐỔI NGÀY TRÊN MOBILE
@@ -2488,7 +2501,7 @@ foreach ($raw_schedules as $row) {
             });
         }
 
-        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ API
+        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ API (HỖ TRỢ OBJECT THUẦN ĐỂ ĐỒNG BỘ CẢ LƯU VÀ XÓA)
         async function syncDataFromServer() {
             if (!navigator.onLine) {
                 return false;
@@ -2504,10 +2517,15 @@ foreach ($raw_schedules as $row) {
                         scheduleData = data.schedule_data;
                         rawSchedules = data.raw_schedules;
                         teachersMap = data.teachers_map;
-                        appSettings = data.settings;
+                        appSettings = Object.assign({}, appSettings, data.settings);
 
-                        if (data.todo_tags !== undefined && typeof data.todo_tags === 'object') {
-                            localStorage.setItem('tkb_todo_tags', JSON.stringify(data.todo_tags));
+                        // Đồng bộ Cloud Todo Tags từ Server
+                        if (data.todo_tags !== undefined && data.todo_tags !== null) {
+                            let serverTags = data.todo_tags;
+                            if (Array.isArray(serverTags) || typeof serverTags !== 'object') {
+                                serverTags = {};
+                            }
+                            localStorage.setItem('tkb_todo_tags', JSON.stringify(serverTags));
                         }
 
                         saveToOfflineStorage();
