@@ -208,6 +208,19 @@ if ($mode === 'check_dismissal') {
     }
 
     echo "Trạng thái: Chưa tới khung giờ cần nhắc nhở tan học (Quét ca {$target_buoi_label}).";
+echo "<br><br><b>Chi tiết tính toán hiện tại:</b><br>";
+echo "- Giờ hệ thống đang ghi nhận: " . date('H:i') . "<br>";
+echo "- Hôm nay là cột: " . $today_field . "<br>";
+if (empty($dismiss_by_kid)) {
+    echo "- Kết quả: Không tìm thấy lịch học ca chiều nào của các bé hôm nay.";
+} else {
+    foreach ($dismiss_by_kid as $kId => $dMin) {
+        $kName = $kids_meta[$kId]['name'] ?? "Bé $kId";
+        $dStr = sprintf('%02d:%02d', floor($dMin / 60), $dMin % 60);
+        $diff = $dMin - $now_minutes;
+        echo "- {$kName}: Dự kiến tan lúc <b>{$dStr}</b> (Còn {$diff} phút nữa là tan trường)<br>";
+    }
+}
 }
 
 // =================================================================================
