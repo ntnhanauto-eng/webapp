@@ -8,8 +8,8 @@ date_default_timezone_set('Asia/Ho_Chi_Minh');
 include 'db.php';
 
 // === 1. CẤU HÌNH TELEGRAM ===
-define('TELEGRAM_TOKEN', 'ĐIỀN_BOT_TOKEN_VÀO_ĐÂY');
-define('TELEGRAM_CHAT_ID', 'ĐIỀN_CHAT_ID_VÀO_ĐÂY');
+define('TELEGRAM_TOKEN', '8987907075:AAEJFwpZoiH65oO0wh6lP2fNBbNhtv3-cHE');
+define('TELEGRAM_CHAT_ID', '1733868980');
 
 // Hàm gửi tin nhắn qua Telegram
 function sendTelegramMessage($message) {
