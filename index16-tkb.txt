@@ -1,0 +1,3589 @@
+<?php 
+// 1. Chống lưu cache tuyệt đối ở cấp độ HTTP Header
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("Expires: 0");
+
+include 'db.php'; 
+
+// Thiết lập múi giờ Việt Nam
+date_default_timezone_set('Asia/Ho_Chi_Minh');
+
+// Lấy thông tin cấu hình từ bảng app_settings (nếu chưa có sẽ lấy giá trị mặc định)
+$settings = [
+    'kid1_name'   => 'Trâm Anh',
+    'kid1_class'  => '6A3',
+    'kid1_pass'   => '123456',
+    'kid2_name'   => 'Thành Phát',
+    'kid2_class'  => '10A4',
+    'kid2_pass'   => '123456',
+    'admin_pass'  => 'admin123',
+    'semester'    => 'HK1',
+    'school_year' => '2026-2027'
+];
+try {
+    $st_set = $conn->query("SELECT setting_key, setting_val FROM app_settings");
+    if ($st_set) {
+        $db_settings = $st_set->fetchAll(PDO::FETCH_KEY_PAIR);
+        $settings = array_merge($settings, $db_settings);
+    }
+} catch (Exception $e) {
+    // Sử dụng mặc định nếu bảng chưa tồn tại
+}
+
+// Xác định thứ hiện tại (0 = CN, 1 = T2, ..., 6 = T7)
+$current_w = (int)date('w');
+$today_field = ($current_w == 0) ? 'cn' : 'thu' . ($current_w + 1);
+
+// Lấy thông tin tháng và năm hiện tại
+$current_month_str = 'Tháng ' . date('n / Y');
+
+// Tính ngày tháng của tuần hiện tại (Thứ 2 -> Chủ Nhật)
+$monday_timestamp = strtotime('this week monday');
+$week_dates = [];
+$days_keys = ['thu2', 'thu3', 'thu4', 'thu5', 'thu6', 'thu7', 'cn'];
+$days_vn_short = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+$days_vn_full  = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+
+for ($i = 0; $i < 7; $i++) {
+    $ts = strtotime("+$i days", $monday_timestamp);
+    $week_dates[$days_keys[$i]] = [
+        'short'     => $days_vn_short[$i],
+        'full_name' => $days_vn_full[$i],
+        'date'      => date('d', $ts),
+        'month'     => date('m', $ts),
+        'full_date' => date('d/m', $ts)
+    ];
+}
+
+// Lấy danh bạ giáo viên lưu vào mảng Map theo ID để tra cứu tức thì
+$teachers_map = [];
+$teachers_by_kid = ['1' => [], '2' => []];
+try {
+    $stmt_tc = $conn->query("SELECT * FROM teachers ORDER BY be_name ASC, subject_name ASC");
+    $all_teachers = $stmt_tc->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($all_teachers as $tc) {
+        $teachers_map[$tc['id']] = $tc;
+        $teachers_by_kid[$tc['be_name']][] = $tc;
+    }
+} catch (Exception $e) {
+    $teachers_map = [];
+}
+
+// Lấy dữ liệu Thời Khóa Biểu
+$stmt = $conn->query("SELECT * FROM schedule ORDER BY FIELD(buoi, 'SÁNG', 'CHIỀU', 'TỐI'), id ASC");
+$raw_schedules = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Chuyển dữ liệu sang mảng App
+$app_data = [];
+foreach ($raw_schedules as $row) {
+    $be_id = (string)$row['be_name'];
+    foreach ($days_keys as $dk) {
+        $raw_content = trim($row[$dk] ?? '');
+        if (!empty($raw_content) && $raw_content !== '-') {
+            $lines = array_values(array_filter(explode("\n", str_replace("\r", "", $raw_content))));
+            $subject = trim($lines[0] ?? '');
+            $note = isset($lines[1]) ? trim(implode(' ', array_slice($lines, 1))) : '';
+
+            $teacher_id = $row['t_' . $dk] ?? null;
+            $teacher_info = ($teacher_id && isset($teachers_map[$teacher_id])) ? $teachers_map[$teacher_id] : null;
+
+            $app_data[] = [
+                'id'          => $row['id'],
+                'be_id'       => $be_id,
+                'day'         => $dk,
+                'buoi'        => $row['buoi'],
+                'tiet'        => $row['tiet'],
+                'subject'     => $subject,
+                'note'        => $note,
+                'teacher'     => $teacher_info
+            ];
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Thời Khóa Biểu Học Tập</title>
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TKB">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2997/2997295.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --active-theme-color: #4f46e5;
+            --bg: #f8fafc;
+            --text-title: #0f172a;
+            --text-muted: #64748b;
+            --border: #f1f5f9;
+            --shadow-sm: 0 2px 8px -2px rgba(15, 23, 42, 0.05);
+            --shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.06);
+
+            --card-gray-bg: #f1f5f9;
+            --card-gray-border: #475569;
+            --card-gray-text: #0f172a;
+
+            --kid1-tag-bg: #dcfce7;
+            --kid1-tag-text: #15803d;
+            --kid2-tag-bg: #dbeafe;
+            --kid2-tag-text: #1d4ed8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: var(--bg); 
+            color: var(--text-title); 
+            padding-top: 0; 
+            padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); 
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+            overflow-x: hidden; 
+        }
+
+        /* Toast thông báo mạng */
+        .network-toast {
+            position: fixed;
+            top: calc(14px + env(safe-area-inset-top, 0px));
+            left: 50%;
+            transform: translateX(-50%) translateY(-70px);
+            z-index: 10000;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+            transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.35s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .network-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        .network-toast.toast-offline {
+            background: #334155;
+            color: #f1f5f9;
+            border: 1px solid #475569;
+        }
+        .network-toast.toast-online {
+            background: #059669;
+            color: #ffffff;
+            border: 1px solid #10b981;
+        }
+
+        /* App Header */
+        .app-header {
+            position: sticky; 
+            top: 0; 
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.94); 
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid #e2e8f0; 
+            padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        .header-left h1 { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .header-left span { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+        .header-right { display: flex; gap: 8px; align-items: center; position: relative; }
+        .icon-btn {
+            width: 34px; height: 34px; border-radius: 50%; border: 1px solid #e2e8f0; background: white;
+            display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; text-decoration: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .icon-btn:active { transform: scale(0.92); }
+
+        /* Badge đếm số môn thi trên nút Header */
+        .exam-badge-count {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            background: #ef4444;
+            color: white;
+            font-size: 9px;
+            font-weight: 800;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #ffffff;
+        }
+
+        /* DROPDOWN MENU TÙY CHỌN (3 CHẤM) */
+        .more-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 44px;
+            right: 0;
+            width: 230px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            z-index: 150;
+            padding: 6px;
+            overflow: hidden;
+        }
+        .more-dropdown-menu.show {
+            display: block;
+            animation: fadeInDown 0.18s ease-out;
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .dropdown-item-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: none;
+            background: none;
+            text-decoration: none;
+            color: #1e293b;
+            font-size: 12.5px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            text-align: left;
+        }
+        .dropdown-item-btn:hover {
+            background: #f1f5f9;
+        }
+        .dropdown-item-btn i {
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+        }
+
+        /* Nút chuyển đổi View Mode chỉ hiển thị trên PC (Màn hình lớn >= 1024px) */
+        .pc-view-toggle-item {
+            display: none !important;
+        }
+        @media screen and (min-width: 1024px) {
+            .pc-view-toggle-item {
+                display: flex !important;
+            }
+        }
+
+        .profile-container { padding: 10px 16px 4px; display: flex; gap: 8px; max-width: 1200px; margin: 0 auto; }
+        .profile-pill {
+            flex: 1; padding: 8px 10px; background: white; border-radius: 12px; border: 1.5px solid #e2e8f0;
+            display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .profile-avatar { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; color: white; flex-shrink: 0; }
+        .profile-text .name { font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .profile-text .desc { font-size: 9px; color: var(--text-muted); }
+        .profile-pill.active[data-target="all"] { border-color: var(--primary); background: #eef2ff; }
+        .profile-pill.active[data-target="all"] .name { color: var(--primary); }
+        .profile-pill.active[data-target="1"] { border-color: #10b981; background: #ecfdf5; }
+        .profile-pill.active[data-target="1"] .name { color: #047857; }
+        .profile-pill.active[data-target="2"] { border-color: #3b82f6; background: #eff6ff; }
+        .profile-pill.active[data-target="2"] .name { color: #1d4ed8; }
+
+        .date-strip-box {
+            position: sticky; 
+            top: calc(55px + env(safe-area-inset-top, 0px)); 
+            z-index: 90;
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            padding: 8px 16px 10px; 
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .month-indicator-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px; }
+        .month-title { font-size: 13px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px; }
+        
+        .month-actions { display: flex; align-items: center; gap: 6px; }
+        
+        .today-quick-btn { font-size: 11px; font-weight: 700; color: #475569; background: #e2e8f0; padding: 4px 9px; border-radius: 12px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+        .today-quick-btn:active { transform: scale(0.95); }
+
+        /* Nút trợ lý giọng nói */
+        .voice-read-btn {
+            font-size: 11px;
+            font-weight: 700;
+            color: #ffffff;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+        }
+        .voice-read-btn:active { transform: scale(0.94); }
+        .voice-read-btn.is-speaking {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: pulseSpeaking 1.2s infinite alternate;
+        }
+        @keyframes pulseSpeaking {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            100% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        }
+
+        .date-strip { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+        .date-strip::-webkit-scrollbar { display: none; }
+        
+        .date-item {
+            flex: 1; min-width: 44px; height: 62px; padding: 8px 2px; text-align: center; border-radius: 14px;
+            background: #e2e8f0; border: 2px solid #cbd5e1; cursor: pointer; transition: all 0.2s;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .date-item .d-day { font-size: 15px; font-weight: 800; color: #1e293b; line-height: 1.1; margin-bottom: 3px; }
+        .date-item .d-num { font-size: 11px; font-weight: 700; color: #475569; line-height: 1; }
+        .date-item.is-weekend .d-day { color: #dc2626 !important; }
+        .date-item.is-weekend .d-num { color: #ef4444 !important; }
+        .date-item.active { border-color: var(--active-theme-color) !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); transform: translateY(-2px); background: #ffffff !important; }
+        .date-item.active:not(.is-weekend) .d-day, .date-item.active:not(.is-weekend) .d-num { color: var(--active-theme-color) !important; }
+
+        /* UPCOMING WIDGET */
+        .upcoming-widget {
+            margin: 12px 16px 4px; 
+            background: #0f172a; 
+            color: white; 
+            padding: 12px; 
+            border-radius: 16px; 
+            box-shadow: var(--shadow-md);
+            border: 1px solid #1e293b;
+        }
+
+        /* KHUNG CẢNH BÁO THỜI TIẾT */
+        .weather-alert-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 11px;
+            border-radius: 10px;
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 1.35;
+            margin-bottom: 6px;
+        }
+        .weather-alert-row.alert-rain {
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid #f87171;
+            color: #fca5a5;
+        }
+        .weather-alert-row.alert-hot {
+            background: rgba(245, 158, 11, 0.18);
+            border: 1px solid #fbbf24;
+            color: #fde68a;
+        }
+        .weather-alert-row.alert-fine {
+            background: rgba(16, 185, 129, 0.18);
+            border: 1px solid #34d399;
+            color: #a7f3d0;
+        }
+
+        .widget-item { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            border-radius: 12px;
+            padding: 8px 10px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .widget-item.clickable {
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .widget-item.clickable:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.01);
+        }
+        .widget-item.clickable:active {
+            transform: scale(0.98);
+        }
+        .widget-item + .widget-item { 
+            margin-top: 8px; 
+            padding-top: 10px; 
+            border-top: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+        .widget-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .widget-icon { 
+            width: 38px; 
+            height: 38px; 
+            border-radius: 11px; 
+            background: rgba(255, 255, 255, 0.12); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 14px; 
+            flex-shrink: 0; 
+        }
+        .widget-status-badge {
+            font-size: 9.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 7px;
+            border-radius: 12px;
+        }
+        .widget-subject { 
+            font-size: 14px; 
+            font-weight: 800; 
+            color: #f8fafc; 
+            margin-top: 3px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            max-width: 170px;
+        }
+        .widget-right { text-align: right; flex-shrink: 0; }
+        .widget-child { font-size: 12px; font-weight: 800; }
+        .widget-time { font-size: 12px; color: #f1f5f9; margin-top: 2px; font-weight: 700; }
+        .widget-time-hint { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+
+        .timeline-section { max-width: 600px; margin: 0 auto; padding: 14px 16px; min-height: calc(100vh - 250px); }
+        .timeline-rail { position: relative; padding-left: 32px; }
+        .timeline-rail::before { content: ''; position: absolute; left: 10px; top: 14px; bottom: 20px; width: 2px; background: #cbd5e1; border-radius: 2px; }
+
+        .subject-card {
+            position: relative; background: var(--card-gray-bg); border: 2px solid var(--card-gray-border);
+            border-radius: 16px; padding: 14px; margin-bottom: 14px; box-shadow: var(--shadow-sm); transition: all 0.25s ease;
+            scroll-margin-top: 160px;
+        }
+        .subject-card.is-current-slot {
+            border: 2.5px solid #ea580c !important; box-shadow: 0 8px 24px -4px rgba(234, 88, 12, 0.45) !important;
+            animation: pulseSlot 2.2s infinite ease-in-out; z-index: 5;
+        }
+        @keyframes pulseSlot {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.015); box-shadow: 0 10px 28px -2px rgba(234, 88, 12, 0.65); }
+        }
+
+        .subject-card.is-past-slot {
+            background: #f8fafc !important;
+            border: 1.5px solid #e2e8f0 !important;
+            box-shadow: none !important;
+            opacity: 1 !important;
+        }
+        .subject-card.is-past-slot:hover {
+            border-color: #cbd5e1 !important;
+        }
+        .subject-card.is-past-slot .timeline-node {
+            border-color: #94a3b8 !important;
+            background: #f1f5f9 !important;
+        }
+
+        /* Vạch tiến độ thời gian thực */
+        .live-progress-container {
+            margin-top: 10px;
+            margin-bottom: 4px;
+            background: #fed7aa;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 6px;
+            position: relative;
+        }
+        .live-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ea580c, #f97316);
+            border-radius: 8px;
+            transition: width 0.5s ease-in-out;
+        }
+        .live-progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #c2410c;
+            margin-top: 4px;
+            margin-bottom: 6px;
+        }
+
+        .subject-card.card-highlight-flash {
+            outline: 3.5px solid #f59e0b !important;
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.8) !important;
+            transform: scale(1.02);
+            transition: all 0.3s ease;
+            opacity: 1 !important;
+        }
+
+        .current-badge {
+            background: #ea580c; color: #ffffff; font-size: 10px; font-weight: 800;
+            padding: 2px 8px; border-radius: 20px; display: inline-flex; align-items: center; gap: 4px;
+        }
+
+        .card-top { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 6px; 
+            gap: 10px; 
+        }
+        .kid-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; }
+        .kid-tag-1 { background: var(--kid1-tag-bg); color: var(--kid1-tag-text); }
+        .kid-tag-2 { background: var(--kid2-tag-bg); color: var(--kid2-tag-text); }
+        
+        .buoi-tag {
+            font-size: 11px; font-weight: 800; color: #475569; background: #e2e8f0;
+            padding: 2px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;
+        }
+
+        .time-box-right { 
+            text-align: right; 
+            white-space: nowrap; 
+            flex-shrink: 0; 
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+        .time-box-right .tiet-label { 
+            font-size: 13.5px; 
+            font-weight: 800; 
+            color: #0f172a; 
+            line-height: 1.2;
+            display: block;
+        }
+        .time-box-right .tiet-range { 
+            font-size: 11.5px; 
+            font-weight: 700; 
+            color: #475569; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 4px; 
+            white-space: nowrap; 
+            flex-shrink: 0; 
+            line-height: 1.2;
+        }
+
+        .subject-line-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .subject-title-link { 
+            font-size: 16px; 
+            font-weight: 800; 
+            color: #0f172a; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            cursor: pointer; 
+            text-decoration: none; 
+        }
+        .subject-title-link:hover { color: var(--primary); }
+
+        .teacher-tag-btn {
+            font-size: 11px; 
+            font-weight: 700; 
+            padding: 3px 9px; 
+            border-radius: 20px;
+            background: #eef2ff; 
+            color: var(--primary); 
+            border: 1px solid #c7d2fe;
+            display: inline-flex; 
+            align-items: center; 
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .teacher-tag-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .teacher-tag-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* HUY HIỆU TRÊN GIAO DIỆN MOBILE CUỘN DỌC (AGENDA) */
+        .custom-todo-badge {
+            margin-top: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 11.5px;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .todo-type-btvn { background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; }
+        .todo-type-kt15 { background: #fef3c7; color: #b45309; border: 1.5px solid #fde68a; }
+        .todo-type-kt1t { background: #ffedd5; color: #c2410c; border: 1.5px solid #fed7aa; }
+        .todo-type-gk   { background: #fae8ff; color: #86198f; border: 1.5px solid #f5d0fe; }
+        .todo-type-hk   { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fecaca; }
+        .todo-type-note { background: #f1f5f9; color: #334155; border: 1.5px solid #cbd5e1; }
+
+        .add-badge-btn {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748b;
+            background: #ffffff;
+            border: 1px dashed #cbd5e1;
+            padding: 3px 8px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            margin-top: 4px;
+            transition: all 0.15s;
+        }
+        .add-badge-btn:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .parent-note {
+            margin-top: 8px;
+            background: #fff7ed;
+            border-left: 3.5px solid #ea580c;
+            border-top: 1px solid #fed7aa;
+            border-right: 1px solid #fed7aa;
+            border-bottom: 1px solid #fed7aa;
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #c2410c;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            line-height: 1.35;
+        }
+        .parent-note i {
+            color: #ea580c;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        /* GHI CHÚ PHỤ TRONG Ô THỜI KHÓA BIỂU */
+        .grid-sub-note {
+            font-size: 8.5px;
+            font-weight: 700;
+            color: #c2410c;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-left: 2px solid #ea580c;
+            border-radius: 3px;
+            padding: 0.5px 3px;
+            margin-top: 1px;
+            width: 100%;
+            text-align: center;
+            line-height: 1.05;
+            word-break: break-word;
+        }
+
+        .timeline-node { position: absolute; left: 5px; top: 20px; width: 12px; height: 12px; border-radius: 50%; background: white; border: 3px solid #475569; z-index: 2; }
+        .buoi-divider { position: relative; margin: 20px 0 12px -32px; display: flex; align-items: center; }
+        .buoi-pill { background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 20px; }
+        .empty-state { text-align: center; padding: 35px 10px; background: white; border-radius: 16px; border: 1px dashed #cbd5e1; margin-left: -20px; }
+
+        /* BẢNG LƯỚI THỜI GIAN THỰC (DESKTOP & MOBILE XOAY NGANG) */
+        #landscapeGridSection { display: none; padding: 10px 14px; max-width: 1280px; margin: 0 auto; }
+        
+        .landscape-table-card {
+            background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 0;
+            box-shadow: var(--shadow-sm); margin-bottom: 20px;
+        }
+        
+        .landscape-table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .landscape-card-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 8px 12px; background: #ffffff; border-bottom: 1px solid #e2e8f0;
+        }
+        .landscape-title { font-size: 13.5px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+        .print-tkb-btn {
+            background: #ffffff; color: #1e293b; border: 1.5px solid #cbd5e1; padding: 4px 10px;
+            border-radius: 10px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;
+        }
+        .print-tkb-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: var(--primary); }
+        
+        .landscape-table { width: 100%; min-width: 980px; border-collapse: separate; border-spacing: 0; text-align: center; font-size: 12px; table-layout: fixed; }
+        .landscape-table th, .landscape-table td { border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 0; vertical-align: top; position: static !important; }
+        .landscape-table th:first-child, .landscape-table td:first-child { border-left: 1px solid #cbd5e1; }
+        .landscape-table tr:first-child th { border-top: 1px solid #cbd5e1; }
+        
+        .landscape-table th { background: #f1f5f9; color: #1e293b; font-weight: 800; font-size: 11.5px; padding: 5px 3px; }
+        .landscape-table .col-buoi { width: 60px; min-width: 60px; max-width: 60px; font-weight: 800; background: #f8fafc; color: #334155; vertical-align: middle; text-align: center; }
+        .landscape-table .col-tiet { width: 95px; min-width: 95px; max-width: 95px; font-weight: 700; background: #ffffff; color: #475569; font-size: 10.5px; line-height: 1.15; }
+        .landscape-table .col-day-header { width: 125px; min-width: 125px; }
+
+        .landscape-time-col-cell {
+            box-sizing: border-box;
+            border-bottom: 1px solid #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2px;
+        }
+
+        .landscape-day-track {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-width: 125px;
+        }
+
+        .landscape-slot-grid-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            border-bottom: 1px solid #cbd5e1;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        /* Ô TIẾT HỌC TRONG BẢNG LƯỚI: THU GỌN KHOẢNG CÁCH VIỀN TRÊN DƯỚI */
+        .grid-sub-box {
+            position: absolute;
+            left: 3px;
+            right: 3px;
+            box-sizing: border-box;
+            background: var(--card-gray-bg);
+            border: 1.5px solid var(--card-gray-border);
+            border-radius: 6px;
+            padding: 1.5px 3px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            z-index: 5;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+        .grid-sub-box.is-current-slot { border: 2px solid #ea580c !important; background: #ffedd5 !important; box-shadow: 0 0 8px rgba(234, 88, 12, 0.4); z-index: 10; }
+        .grid-sub-box.is-past-slot {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+            opacity: 1 !important;
+        }
+        .grid-sub-box.is-past-slot .grid-sub-title {
+            color: #334155 !important;
+        }
+        .grid-sub-title { 
+            font-weight: 800; 
+            color: #0f172a; 
+            font-size: 11px; 
+            line-height: 1.1; 
+            text-align: center; 
+            white-space: normal; 
+            word-break: break-word; 
+            margin: 0;
+            padding: 0;
+        }
+        .grid-sub-teacher { 
+            font-size: 9px; 
+            font-weight: 700; 
+            color: var(--primary); 
+            margin-top: 1px; 
+            text-align: center; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            max-width: 100%; 
+            line-height: 1.1;
+            padding: 0;
+        }
+
+        /* NÚT FULLSCREEN KHI XOAY NGANG TRÊN MOBILE */
+        .fullscreen-btn {
+            display: none;
+            position: fixed;
+            top: 8px;
+            right: 12px;
+            z-index: 200;
+            background: rgba(15, 23, 42, 0.85);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+        .fullscreen-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* CHẾ ĐỘ XOAY NGANG TRÊN MOBILE */
+        @media screen and (orientation: landscape) and (max-width: 1023px) {
+            .date-strip-box, .upcoming-widget, .timeline-section { display: none !important; }
+            #landscapeGridSection { display: block !important; }
+            .fullscreen-btn { display: flex; }
+
+            @media (max-height: 550px) {
+                .app-header { display: none !important; }
+            }
+
+            .profile-container {
+                position: sticky;
+                top: 0;
+                z-index: 50;
+                background: rgba(248, 250, 252, 0.96);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                padding: 6px 14px;
+                border-bottom: 1px solid #e2e8f0;
+                padding-right: 58px;
+            }
+            .profile-pill {
+                padding: 6px 8px;
+            }
+        }
+
+        /* TRÊN PC (DESKTOP/LAPTOP) */
+        @media screen and (min-width: 1024px) {
+            body.pc-mode-grid .date-strip-box,
+            body.pc-mode-grid .upcoming-widget,
+            body.pc-mode-grid .timeline-section {
+                display: none !important;
+            }
+            body.pc-mode-grid #landscapeGridSection {
+                display: block !important;
+            }
+
+            body.pc-mode-agenda #landscapeGridSection {
+                display: none !important;
+            }
+            body.pc-mode-agenda .date-strip-box,
+            body.pc-mode-agenda .upcoming-widget,
+            body.pc-mode-agenda .timeline-section {
+                display: block !important;
+            }
+        }
+
+        /* MODAL LỊCH THI TẬP TRUNG CHIA 2 TAB */
+        .exam-tabs-nav {
+            display: flex;
+            background: #e2e8f0;
+            padding: 3px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            gap: 4px;
+        }
+        .exam-tab-btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            font-weight: 800;
+            color: #64748b;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            text-align: center;
+        }
+        .exam-tab-btn.active[data-kid="1"] {
+            background: #ffffff;
+            color: #047857;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .exam-tab-btn.active[data-kid="2"] {
+            background: #ffffff;
+            color: #1d4ed8;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .exam-card-item {
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+        }
+        .exam-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .exam-type-badge {
+            font-size: 10.5px;
+            font-weight: 800;
+            padding: 3px 9px;
+            border-radius: 12px;
+            text-transform: uppercase;
+        }
+        .exam-type-gk { background: #fae8ff; color: #86198f; }
+        .exam-type-hk { background: #fee2e2; color: #b91c1c; }
+        
+        .exam-sub-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .exam-meta-line {
+            font-size: 11.5px;
+            color: #475569;
+            font-weight: 700;
+            margin-top: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .exam-note-box {
+            margin-top: 6px;
+            background: #fff7ed;
+            border-left: 3px solid #ea580c;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #c2410c;
+            font-weight: 700;
+        }
+
+        /* IN ẤN KHỔ A4 NGANG (VỪA VẶN 1 TRANG GIẤY DUY NHẤT) */
+        @page { 
+            size: A4 landscape; 
+            margin: 4mm 5mm; 
+        }
+        @media print {
+            html, body {
+                width: 100% !important;
+                height: 100% !important;
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            .app-header, .profile-container, .date-strip-box, .upcoming-widget, 
+            .timeline-section, .print-tkb-btn, .modal-overlay, .network-toast, 
+            .fullscreen-btn { 
+                display: none !important; 
+            }
+
+            #landscapeGridSection { 
+                display: block !important; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                width: 100% !important; 
+                max-width: 100% !important; 
+            }
+
+            .landscape-table-card { 
+                border: 1px solid #334155 !important; 
+                box-shadow: none !important; 
+                margin: 0 0 10px 0 !important; 
+                padding: 2px !important;
+                page-break-inside: avoid !important;
+                page-break-after: always !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            body.printing-single .landscape-table-card { display: none !important; }
+            body.printing-single .landscape-table-card.target-print { 
+                display: block !important; 
+                page-break-after: auto !important; 
+                border: 1px solid #334155 !important;
+            }
+
+            .landscape-table-wrapper {
+                overflow: visible !important;
+                width: 100% !important;
+            }
+
+            .landscape-table { 
+                width: 100% !important; 
+                min-width: 100% !important; 
+                table-layout: fixed !important;
+                font-size: 9.5px !important; 
+            }
+
+            .landscape-table th, .landscape-table td { 
+                padding: 0 !important; 
+                border: 1px solid #334155 !important; 
+                position: static !important; 
+            }
+
+            .landscape-table th {
+                padding: 3px 1px !important;
+                font-size: 10px !important;
+            }
+
+            .col-buoi { width: 45px !important; min-width: 45px !important; font-size: 10px !important; }
+            .col-tiet { width: 75px !important; min-width: 75px !important; }
+            .col-day-header { width: auto !important; min-width: 0 !important; }
+
+            .landscape-time-col-cell {
+                padding: 1px !important;
+                font-size: 8.5px !important;
+            }
+
+            .grid-sub-box { 
+                border: 1px solid #334155 !important; 
+                background: #f8fafc !important; 
+                box-shadow: none !important; 
+                padding: 1px 2px !important;
+                left: 2px !important;
+                right: 2px !important;
+            }
+
+            .grid-sub-title {
+                font-size: 9px !important;
+                line-height: 1.05 !important;
+            }
+
+            .grid-sub-teacher {
+                font-size: 7.5px !important;
+                line-height: 1.05 !important;
+                margin-top: 0.5px !important;
+            }
+
+            .grid-sub-note {
+                font-size: 7px !important;
+                padding: 0 1px !important;
+                margin-top: 0.5px !important;
+                line-height: 1 !important;
+            }
+        }
+
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 16px;
+        }
+        .modal-content { background: #ffffff; width: 100%; max-width: 520px; max-height: 85vh; border-radius: 18px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15); overflow: hidden; display: flex; flex-direction: column; }
+        .modal-header { padding: 14px 18px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; font-size: 16px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+        .modal-close-btn { background: none; border: none; font-size: 20px; color: #64748b; cursor: pointer; }
+        .modal-body { padding: 16px; overflow-y: auto; }
+        
+        .teacher-action-btns {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .t-call-btn { background: #10b981; color: white; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+        .t-zalo-btn { background: #0068ff; color: white; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+        .t-call-btn:active, .t-zalo-btn:active { transform: scale(0.95); }
+
+        .form-label { font-size: 12px; font-weight: 800; color: #334155; margin-bottom: 6px; display: block; }
+        .form-input, .form-select {
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 13px;
+            font-family: inherit;
+            margin-bottom: 12px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus, .form-select:focus { border-color: var(--primary); }
+        .btn-submit-tag {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .btn-delete-tag {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .pass-hint-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Thống kê môn học */
+        .summary-kid-title {
+            font-size: 13px;
+            font-weight: 800;
+            margin: 12px 0 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+        }
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .summary-card .s-name { font-size: 12px; font-weight: 700; color: #1e293b; }
+        .summary-card .s-count { 
+            background: #e2e8f0; 
+            color: #0f172a; 
+            font-size: 11px; 
+            font-weight: 800; 
+            padding: 2px 7px; 
+            border-radius: 12px; 
+        }
+
+        /* Danh sách tìm kiếm môn học */
+        .search-result-item {
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .search-result-item:hover {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+        }
+    </style>
+</head>
+<body class="pc-mode-grid">
+
+    <!-- 0. TOAST THÔNG BÁO TRẠNG THÁI MẠNG -->
+    <div id="networkToast" class="network-toast">
+        <i id="networkToastIcon" class="fa-solid"></i>
+        <span id="networkToastMsg"></span>
+    </div>
+
+    <!-- 1. APP HEADER -->
+    <header class="app-header">
+        <div class="header-left">
+            <h1><i class="fa-solid fa-graduation-cap" style="color: var(--active-theme-color);"></i> Thời Khóa Biểu</h1>
+            <span><?php echo htmlspecialchars($settings['semester']); ?> • <?php echo htmlspecialchars($settings['school_year']); ?></span>
+        </div>
+        <div class="header-right">
+            <!-- 1. NÚT LỊCH THI -->
+            <button type="button" onclick="openExamScheduleModal()" class="icon-btn" title="Lịch thi tập trung">
+                <i class="fa-solid fa-trophy" style="color: #f59e0b;"></i>
+                <span class="exam-badge-count" id="examBadgeCount" style="display:none;">0</span>
+            </button>
+
+            <!-- 2. NÚT LÀM MỚI TRANG -->
+            <button type="button" onclick="manualSync()" id="refreshBtn" class="icon-btn" title="Làm mới dữ liệu">
+                <i class="fa-solid fa-arrows-rotate" style="color: var(--primary);"></i>
+            </button>
+
+            <!-- 3. NÚT TÙY CHỌN (GOM CÁC NÚT CÒN LẠI VÀO MENU POPUP) -->
+            <button type="button" onclick="toggleMoreMenu(event)" id="moreMenuBtn" class="icon-btn" title="Tùy chọn khác">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+
+            <!-- POPUP MENU TÙY CHỌN -->
+            <div class="more-dropdown-menu" id="moreDropdownMenu">
+                <button type="button" class="dropdown-item-btn" onclick="openSubjectSearchModal(); closeMoreMenu();">
+                    <i class="fa-solid fa-magnifying-glass" style="color: #ea580c;"></i>
+                    <span>Tra cứu môn học</span>
+                </button>
+                <!-- CHỈ HIỂN THỊ TRÊN PC / MÀN HÌNH LỚN -->
+                <button type="button" class="dropdown-item-btn pc-view-toggle-item" id="pcViewToggleDropdownBtn" onclick="togglePcViewMode(); closeMoreMenu();">
+                    <i class="fa-solid fa-mobile-screen" id="pcViewToggleIcon" style="color: #6366f1;"></i>
+                    <span id="pcViewToggleText">Chế độ di động trên PC</span>
+                </button>
+                <button type="button" class="dropdown-item-btn" onclick="openSubjectSummaryModal(); closeMoreMenu();">
+                    <i class="fa-solid fa-chart-pie" style="color: #8b5cf6;"></i>
+                    <span>Thống kê môn học</span>
+                </button>
+                <button type="button" class="dropdown-item-btn" onclick="openAllTeachersModal(); closeMoreMenu();">
+                    <i class="fa-solid fa-phone" style="color: #10b981;"></i>
+                    <span>Danh bạ giáo viên</span>
+                </button>
+                <a href="login.php" class="dropdown-item-btn" onclick="closeMoreMenu();">
+                    <i class="fa-solid fa-gear" style="color: #475569;"></i>
+                    <span>Quản trị hệ thống</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- NÚT BẬT TẮT TOÀN MÀN HÌNH KHI XOAY NGANG TRÊN MOBILE -->
+    <button type="button" class="fullscreen-btn" id="fullScreenToggleBtn" onclick="toggleFullscreen()" title="Bật/Tắt Toàn Màn Hình">
+        <i class="fa-solid fa-expand" id="fullScreenIcon"></i>
+    </button>
+
+    <!-- 2. HỒ SƠ 2 BÉ -->
+    <section class="profile-container">
+        <div class="profile-pill active" data-target="all" onclick="changeProfile('all')">
+            <div class="profile-avatar" style="background: #4f46e5;"><i class="fa-solid fa-house-user"></i></div>
+            <div class="profile-text"><div class="name">Cả 2 Bé</div><div class="desc">Lịch gộp chung</div></div>
+        </div>
+        <div class="profile-pill" data-target="1" onclick="changeProfile('1')">
+            <div class="profile-avatar" style="background: #10b981;">TA</div>
+            <div class="profile-text"><div class="name" id="kid1NameNav"><?php echo htmlspecialchars($settings['kid1_name']); ?></div><div class="desc" id="kid1ClassNav">Lớp <?php echo htmlspecialchars($settings['kid1_class']); ?></div></div>
+        </div>
+        <div class="profile-pill" data-target="2" onclick="changeProfile('2')">
+            <div class="profile-avatar" style="background: #3b82f6;">TP</div>
+            <div class="profile-text"><div class="name" id="kid2NameNav"><?php echo htmlspecialchars($settings['kid2_name']); ?></div><div class="desc" id="kid2ClassNav">Lớp <?php echo htmlspecialchars($settings['kid2_class']); ?></div></div>
+        </div>
+    </section>
+
+    <!-- 3. THANH THÁNG VÀ DATE STRIP -->
+    <div class="date-strip-box">
+        <div class="month-indicator-bar">
+            <div class="month-title"><i class="fa-regular fa-calendar-days"></i> <span id="currentMonthStrDisplay"><?php echo $current_month_str; ?></span></div>
+            
+            <div class="month-actions">
+                <button type="button" class="voice-read-btn" id="voiceAssistantBtn" onclick="toggleVoiceSpeech()" title="Đọc thời khóa biểu hôm nay">
+                    <i class="fa-solid fa-volume-high" id="voiceIcon"></i>
+                    <span id="voiceBtnText">Đọc lịch</span>
+                </button>
+                <button class="today-quick-btn" onclick="goToToday()"><i class="fa-solid fa-rotate-left"></i> Về hôm nay</button>
+            </div>
+        </div>
+
+        <div class="date-strip" id="dateStrip">
+            <?php foreach ($days_keys as $dk): 
+                $info = $week_dates[$dk];
+                $is_weekend = ($dk === 'thu7' || $dk === 'cn');
+            ?>
+                <div class="date-item <?php echo $is_weekend ? 'is-weekend' : ''; ?>" id="chip-<?php echo $dk; ?>" data-day="<?php echo $dk; ?>" onclick="changeDay('<?php echo $dk; ?>')">
+                    <span class="d-day"><?php echo $info['short']; ?></span>
+                    <span class="d-num" id="dnum-<?php echo $dk; ?>"><?php echo $info['date']; ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <!-- 4. WIDGET THÔNG BÁO TIẾT HỌC ĐỘNG & DỰ BÁO THỜI TIẾT TỪNG BUỔI NINH HÒA -->
+    <div class="upcoming-widget" id="upcomingWidget">
+        <div id="rainAlertBox" style="display:none; margin-bottom: 8px;"></div>
+        <div id="widgetItemsContainer"></div>
+    </div>
+
+    <!-- 5. DANH SÁCH DÒNG THỜI GIAN DỌC (AGENDA) - CÓ HUY HIỆU BÀI TẬP / KIỂM TRA -->
+    <main class="timeline-section" id="timelineMain">
+        <div class="timeline-rail" id="timelineStream"></div>
+    </main>
+
+    <!-- 6. BẢNG THỜI KHÓA BIỂU DẠNG LƯỚI (DESKTOP / LANDSCAPE) - CHỈ TÊN MÔN, GV, GHI CHÚ BA MẸ -->
+    <section id="landscapeGridSection">
+        <div id="landscapeGridContainer"></div>
+    </section>
+
+    <!-- 7. MODAL TRA CỨU MÔN HỌC RIÊNG BIỆT -->
+    <div id="subjectSearchModal" class="modal-overlay" onclick="closeSubjectSearchModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-magnifying-glass" style="color: #ea580c;"></i> Tra Cứu Môn Học</h3>
+                <button type="button" class="modal-close-btn" onclick="closeSubjectSearchModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="subjectSearchInput" class="form-input" placeholder="Nhập tên môn học (Toán, Văn, Anh...)" oninput="filterSubjectSearchList()" autofocus>
+                <div id="subjectSearchResults" style="margin-top: 4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 8. MODAL XEM CHI TIẾT GIÁO VIÊN CỦA 1 MÔN -->
+    <div id="singleTeacherModal" class="modal-overlay" onclick="closeSingleTeacherModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-chalkboard-user" style="color: var(--primary);"></i> Thông Tin Giáo Viên</h3>
+                <button type="button" class="modal-close-btn" onclick="closeSingleTeacherModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="singleTeacherBody"></div>
+        </div>
+    </div>
+
+    <!-- 9. MODAL TOÀN BỘ DANH BẠ GIÁO VIÊN -->
+    <div id="allTeachersModal" class="modal-overlay" onclick="closeAllTeachersModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-address-book" style="color: #10b981;"></i> Danh Bạ Giáo Viên</h3>
+                <button type="button" class="modal-close-btn" onclick="closeAllTeachersModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="font-size: 12px; font-weight: 800; color: #15803d; margin-bottom: 6px;">👧 Bé <?php echo htmlspecialchars($settings['kid1_name']); ?> (<?php echo htmlspecialchars($settings['kid1_class']); ?>)</div>
+                <?php if (!empty($teachers_by_kid['1'])): foreach ($teachers_by_kid['1'] as $t): 
+                    $cleanPhone = preg_replace('/[^0-9]/', '', $t['phone'] ?? '');
+                ?>
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:8px 10px; border-radius:10px; margin-bottom:6px; border:1px solid #e2e8f0;">
+                        <div>
+                            <div style="font-size:11px; font-weight:800; color:var(--primary);"><?php echo htmlspecialchars($t['subject_name']); ?></div>
+                            <div style="font-size:13px; font-weight:700;"><?php echo htmlspecialchars($t['teacher_name']); ?></div>
+                        </div>
+                        <?php if ($t['phone']): ?>
+                            <div class="teacher-action-btns">
+                                <a href="tel:<?php echo htmlspecialchars($t['phone']); ?>" class="t-call-btn" title="Gọi điện"><i class="fa-solid fa-phone"></i> Gọi</a>
+                                <a href="https://zalo.me/<?php echo htmlspecialchars($cleanPhone); ?>" target="_blank" rel="noopener" class="t-zalo-btn" title="Nhắn Zalo"><i class="fa-solid fa-comment-dots"></i> Zalo</a>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; else: ?><div style="font-size:12px; color:#94a3b8; margin-bottom:8px;">Chưa có giáo viên.</div><?php endif; ?>
+
+                <div style="font-size: 12px; font-weight: 800; color: #1d4ed8; margin: 12px 0 6px;">👦 Bé <?php echo htmlspecialchars($settings['kid2_name']); ?> (<?php echo htmlspecialchars($settings['kid2_class']); ?>)</div>
+                <?php if (!empty($teachers_by_kid['2'])): foreach ($teachers_by_kid['2'] as $t): 
+                    $cleanPhone2 = preg_replace('/[^0-9]/', '', $t['phone'] ?? '');
+                ?>
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:8px 10px; border-radius:10px; margin-bottom:6px; border:1px solid #e2e8f0;">
+                        <div>
+                            <div style="font-size:11px; font-weight:800; color:var(--primary);"><?php echo htmlspecialchars($t['subject_name']); ?></div>
+                            <div style="font-size:13px; font-weight:700;"><?php echo htmlspecialchars($t['teacher_name']); ?></div>
+                        </div>
+                        <?php if ($t['phone']): ?>
+                            <div class="teacher-action-btns">
+                                <a href="tel:<?php echo htmlspecialchars($t['phone']); ?>" class="t-call-btn" title="Gọi điện"><i class="fa-solid fa-phone"></i> Gọi</a>
+                                <a href="https://zalo.me/<?php echo htmlspecialchars($cleanPhone2); ?>" target="_blank" rel="noopener" class="t-zalo-btn" title="Nhắn Zalo"><i class="fa-solid fa-comment-dots"></i> Zalo</a>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; else: ?><div style="font-size:12px; color:#94a3b8;">Chưa có giáo viên.</div><?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- 10. MODAL GẮN HUY HIỆU BÀI TẬP / LỊCH KIỂM TRA (DÀNH CHO MOBILE AGENDA) -->
+    <div id="todoTagModal" class="modal-overlay" onclick="closeTodoTagModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-tag" style="color: #f59e0b;"></i> Nhãn Bài Tập & Kiểm Tra</h3>
+                <button type="button" class="modal-close-btn" onclick="closeTodoTagModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="todoModalSubjectTitle" style="font-size:14px; font-weight:800; color:#0f172a; margin-bottom:4px;"></div>
+                <div id="todoModalKidOwner" style="font-size:12px; font-weight:700; color:#ea580c; margin-bottom:12px;"></div>
+                
+                <input type="hidden" id="todoSlotKey">
+                <input type="hidden" id="todoKidId">
+
+                <label class="form-label">Loại huy hiệu</label>
+                <select id="todoTypeSelect" class="form-select">
+                    <option value="btvn">📝 Bài tập về nhà</option>
+                    <option value="kt15">⏱️ Kiểm tra 15 phút</option>
+                    <option value="kt1t">📑 Kiểm tra 1 tiết</option>
+                    <option value="gk">🏆 Kiểm tra Giữa kỳ</option>
+                    <option value="hk">🎯 Thi Học kỳ</option>
+                    <option value="note">📌 Lưu ý / Dụng cụ học tập</option>
+                </select>
+
+                <label class="form-label">Nội dung ghi chú</label>
+                <input type="text" id="todoContentInput" class="form-input" placeholder="Ví dụ: Làm bài 1,2 trang 45; Mang compa..." maxlength="100">
+
+                <label class="form-label">Thời gian tự hủy</label>
+                <select id="todoExpireSelect" class="form-select">
+                    <option value="today_end">Hết ngày hôm nay (23:59)</option>
+                    <option value="24h">Sau 24 giờ</option>
+                    <option value="3d">Sau 3 ngày</option>
+                    <option value="weekend">Hết tuần này (Chủ nhật)</option>
+                </select>
+
+                <label class="form-label">Mật khẩu xác nhận</label>
+                <input type="password" id="todoPasswordInput" class="form-input" placeholder="Nhập mật khẩu của bé hoặc Admin" autocomplete="new-password">
+                <div class="pass-hint-box">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span id="todoPassHintText">Bắt buộc nhập mật khẩu của bé này hoặc mật khẩu Admin để thêm, sửa hoặc xóa.</span>
+                </div>
+
+                <button type="button" class="btn-submit-tag" onclick="saveTodoTag()"><i class="fa-solid fa-check"></i> Lưu huy hiệu</button>
+                <button type="button" id="btnDeleteTag" class="btn-delete-tag" style="display:none;" onclick="removeTodoTag()"><i class="fa-solid fa-trash-can"></i> Xóa huy hiệu này</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11. MODAL THỐNG KÊ TẢI LƯỢNG MÔN HỌC TRONG TUẦN -->
+    <div id="subjectSummaryModal" class="modal-overlay" onclick="closeSubjectSummaryModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-chart-pie" style="color: #8b5cf6;"></i> Thống Kê Tiết Học Trong Tuần</h3>
+                <button type="button" class="modal-close-btn" onclick="closeSubjectSummaryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="subjectSummaryBody"></div>
+        </div>
+    </div>
+
+    <!-- 12. MODAL LỊCH THI TẬP TRUNG CHIA 2 TAB CHO 2 BÉ (GIỮA KỲ & CUỐI KỲ) -->
+    <div id="examScheduleModal" class="modal-overlay" onclick="closeExamScheduleModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-trophy" style="color: #f59e0b;"></i> Lịch Thi Giữa Kỳ & Cuối Kỳ</h3>
+                <button type="button" class="modal-close-btn" onclick="closeExamScheduleModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- 2 TAB CHỌN BÉ -->
+                <div class="exam-tabs-nav">
+                    <button type="button" class="exam-tab-btn active" id="examTabBtn_1" data-kid="1" onclick="switchExamTab('1')">
+                        👧 Bé <?php echo htmlspecialchars($settings['kid1_name']); ?> (<?php echo htmlspecialchars($settings['kid1_class']); ?>)
+                    </button>
+                    <button type="button" class="exam-tab-btn" id="examTabBtn_2" data-kid="2" onclick="switchExamTab('2')">
+                        👦 Bé <?php echo htmlspecialchars($settings['kid2_name']); ?> (<?php echo htmlspecialchars($settings['kid2_class']); ?>)
+                    </button>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="font-size:12px; font-weight:800; color:#475569;" id="examModalSubtitle">Danh sách môn thi</div>
+                    <button type="button" onclick="showExamForm()" class="today-quick-btn" style="background:var(--primary); color:white;">
+                        <i class="fa-solid fa-plus"></i> Thêm môn thi
+                    </button>
+                </div>
+
+                <!-- Form Thêm / Chỉnh sửa lịch thi -->
+                <div id="examFormBox" style="display:none; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:12px; margin-bottom:14px;">
+                    <div style="font-size:13px; font-weight:800; margin-bottom:8px; color:var(--primary);" id="examFormTitle">Nhập Môn Thi Mới</div>
+                    <input type="hidden" id="examEditId">
+                    <input type="hidden" id="examFormKidTarget" value="1">
+
+                    <label class="form-label">Kỳ thi</label>
+                    <select id="examFormTypeSelect" class="form-select">
+                        <option value="gk">🏆 Lịch thi Giữa kỳ</option>
+                        <option value="hk">🎯 Lịch thi Cuối kỳ</option>
+                    </select>
+
+                    <label class="form-label">Môn thi</label>
+                    <input type="text" id="examFormSubject" class="form-input" placeholder="Ví dụ: Toán, Ngữ Văn, Tiếng Anh...">
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                        <div>
+                            <label class="form-label">Ngày thi</label>
+                            <input type="date" id="examFormDate" class="form-input">
+                        </div>
+                        <div>
+                            <label class="form-label">Giờ bắt đầu</label>
+                            <input type="time" id="examFormTime" class="form-input">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                        <div>
+                            <label class="form-label">Thời lượng (phút)</label>
+                            <input type="number" id="examFormDuration" class="form-input" placeholder="Ví dụ: 60, 90" value="60">
+                        </div>
+                        <div>
+                            <label class="form-label">Phòng thi</label>
+                            <input type="text" id="examFormRoom" class="form-input" placeholder="Ví dụ: P.12, Lab 1">
+                        </div>
+                    </div>
+
+                    <label class="form-label">Số báo danh (SBD)</label>
+                    <input type="text" id="examFormSbd" class="form-input" placeholder="Ví dụ: 6A3-15 (nếu có)">
+
+                    <label class="form-label">Dụng cụ cần mang / Ghi chú</label>
+                    <input type="text" id="examFormNotes" class="form-input" placeholder="Ví dụ: Mang máy tính Casio, compa, thước kẻ...">
+
+                    <label class="form-label">Mật khẩu xác nhận</label>
+                    <input type="password" id="examFormPassword" class="form-input" placeholder="Mật khẩu của bé hoặc Admin">
+                    <div class="pass-hint-box" style="margin-bottom:8px;">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Bắt buộc nhập mật khẩu của bé hoặc mật khẩu Admin để lưu.</span>
+                    </div>
+
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn-submit-tag" onclick="saveExamSchedule()"><i class="fa-solid fa-check"></i> Lưu lịch thi</button>
+                        <button type="button" class="today-quick-btn" onclick="hideExamForm()" style="background:#e2e8f0; color:#475569; padding:0 14px;">Hủy</button>
+                    </div>
+                </div>
+
+                <!-- Danh sách lịch thi của Tab hiện tại -->
+                <div id="examScheduleListContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scheduleData = <?php echo json_encode($app_data, JSON_UNESCAPED_UNICODE); ?>;
+        const daysKeysList = <?php echo json_encode($days_keys); ?>;
+        let rawSchedules = <?php echo json_encode($raw_schedules, JSON_UNESCAPED_UNICODE); ?>;
+        let teachersMap = <?php echo json_encode($teachers_map, JSON_UNESCAPED_UNICODE); ?>;
+        let appSettings = <?php echo json_encode($settings, JSON_UNESCAPED_UNICODE); ?>;
+        
+        const profileColors = { 'all': '#4f46e5', '1': '#10b981', '2': '#3b82f6' };
+        let currentProfile = 'all';
+        let currentExamTab = '1';
+
+        // --- 1. TỰ ĐỘNG CHUYỂN THỨ / NGÀY THEO THỜI GIAN THỰC ---
+        let realTodayKey = '<?php echo $today_field; ?>';
+        let weekDates = <?php echo json_encode($week_dates, JSON_UNESCAPED_UNICODE); ?>;
+        let currentDay = realTodayKey;
+
+        function refreshRealTimeDates() {
+            const now = new Date();
+            const jsDay = now.getDay();
+            const calculatedTodayKey = (jsDay === 0) ? 'cn' : 'thu' + (jsDay + 1);
+            
+            const diffToMonday = (jsDay === 0 ? -6 : 1) - jsDay;
+            const mondayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
+
+            const daysVnShort = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+            const daysVnFull  = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+
+            const newWeekDates = {};
+            for (let i = 0; i < 7; i++) {
+                let d = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + i);
+                let dayKey = daysKeysList[i];
+                let dd = String(d.getDate()).padStart(2, '0');
+                let mm = String(d.getMonth() + 1).padStart(2, '0');
+                newWeekDates[dayKey] = {
+                    short: daysVnShort[i],
+                    full_name: daysVnFull[i],
+                    date: dd,
+                    month: mm,
+                    full_date: `${dd}/${mm}`
+                };
+
+                let chipNum = document.getElementById('dnum-' + dayKey);
+                if (chipNum) chipNum.innerText = dd;
+            }
+
+            weekDates = newWeekDates;
+            
+            const monthElem = document.getElementById('currentMonthStrDisplay');
+            if (monthElem) {
+                monthElem.innerText = `Tháng ${now.getMonth() + 1} / ${now.getFullYear()}`;
+            }
+
+            if (realTodayKey !== calculatedTodayKey) {
+                realTodayKey = calculatedTodayKey;
+                currentDay = realTodayKey;
+                changeDay(realTodayKey);
+            }
+        }
+
+        // --- 2. DỰ BÁO THỜI TIẾT GIỜ TAN TRƯỜNG NINH HÒA ---
+        async function checkRainAlert() {
+            const alertBox = document.getElementById('rainAlertBox');
+            if (!alertBox) return;
+
+            try {
+                if (currentDay !== realTodayKey) {
+                    alertBox.style.display = 'none';
+                    return;
+                }
+
+                let targetList = scheduleData.filter(i => i.day === realTodayKey);
+                if (currentProfile !== 'all') {
+                    targetList = targetList.filter(i => i.be_id === currentProfile);
+                }
+
+                if (targetList.length === 0) {
+                    alertBox.style.display = 'none';
+                    return;
+                }
+
+                let morningStartMin = 24 * 60;
+                let morningDismissMin = 0;
+                let afternoonStartMin = 24 * 60;
+                let afternoonDismissMin = 0;
+
+                targetList.forEach(item => {
+                    let slot = parseSlotMinutes(item);
+                    if (!slot) return;
+                    let b = (item.buoi || '').toUpperCase();
+                    if (b.includes('SÁNG') || b.includes('SANG')) {
+                        if (slot.start < morningStartMin) morningStartMin = slot.start;
+                        if (slot.end > morningDismissMin) morningDismissMin = slot.end;
+                    } else if (b.includes('CHIỀU') || b.includes('CHIEU')) {
+                        if (slot.start < afternoonStartMin) afternoonStartMin = slot.start;
+                        if (slot.end > afternoonDismissMin) afternoonDismissMin = slot.end;
+                    }
+                });
+
+                const now = new Date();
+                const currentMinNow = now.getHours() * 60 + now.getMinutes();
+
+                const showMorningAlert = (morningDismissMin > 0) && 
+                                         (currentMinNow >= (morningStartMin - 60)) && 
+                                         (currentMinNow <= (morningDismissMin + 30));
+
+                const showAfternoonAlert = (afternoonDismissMin > 0) && 
+                                           (currentMinNow >= (afternoonStartMin - 60)) && 
+                                           (currentMinNow <= (afternoonDismissMin + 30));
+
+                if (!showMorningAlert && !showAfternoonAlert) {
+                    alertBox.style.display = 'none';
+                    return;
+                }
+
+                const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=12.5000&longitude=109.1333&hourly=temperature_2m,precipitation,precipitation_probability&timezone=Asia%2FBangkok', { cache: 'no-store' });
+                if (!res.ok) return;
+
+                const data = await res.json();
+
+                function evaluateWeatherAt(dismissMinutes) {
+                    const dismissHour = Math.floor(dismissMinutes / 60);
+                    const dismissMinute = dismissMinutes % 60;
+                    const timeStr = String(dismissHour).padStart(2, '0') + ':' + String(dismissMinute).padStart(2, '0');
+
+                    let rain = false;
+                    let hot = false;
+                    let temp = 30;
+
+                    if (data.hourly && data.hourly.time) {
+                        for (let i = 0; i < data.hourly.time.length; i++) {
+                            const forecastTime = new Date(data.hourly.time[i]);
+                            if (forecastTime.getDate() === now.getDate()) {
+                                let fHour = forecastTime.getHours();
+                                if (fHour >= (dismissHour - 1) && fHour <= dismissHour) {
+                                    let precip = data.hourly.precipitation ? data.hourly.precipitation[i] : 0;
+                                    let prob = data.hourly.precipitation_probability ? data.hourly.precipitation_probability[i] : 0;
+                                    temp = data.hourly.temperature_2m ? Math.round(data.hourly.temperature_2m[i]) : 30;
+
+                                    if (precip > 0.1 || prob > 50) {
+                                        rain = true;
+                                        break;
+                                    } else if (temp >= 33) {
+                                        hot = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return { timeStr, rain, hot, temp };
+                }
+
+                let alertRowsHtml = '';
+
+                if (showMorningAlert) {
+                    let w = evaluateWeatherAt(morningDismissMin);
+                    if (w.rain) {
+                        alertRowsHtml += `
+                            <div class="weather-alert-row alert-rain">
+                                <i class="fa-solid fa-cloud-showers-heavy" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span><b>Tan học sáng (${w.timeStr}):</b> Dự báo Ninh Hòa có mưa (${w.temp}°C). Ba mẹ chuẩn bị ô/áo mưa nhé!</span>
+                            </div>
+                        `;
+                    } else if (w.hot) {
+                        alertRowsHtml += `
+                            <div class="weather-alert-row alert-hot">
+                                <i class="fa-solid fa-sun" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span><b>Tan học sáng (${w.timeStr}):</b> Ninh Hòa nắng nóng (${w.temp}°C). Nhắc con đội nón mũ và mặc áo khoác!</span>
+                            </div>
+                        `;
+                    } else {
+                        alertRowsHtml += `
+                            <div class="weather-alert-row alert-fine">
+                                <i class="fa-solid fa-cloud-sun" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span><b>Tan học sáng (${w.timeStr}):</b> Thời tiết Ninh Hòa dịu mát (${w.temp}°C), thuận tiện đón con.</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                if (showAfternoonAlert) {
+                    let w = evaluateWeatherAt(afternoonDismissMin);
+                    if (w.rain) {
+                        alertRowsHtml += `
+                            <div class="weather-alert-row alert-rain">
+                                <i class="fa-solid fa-cloud-showers-heavy" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span><b>Tan học chiều (${w.timeStr}):</b> Dự báo Ninh Hòa có mưa (${w.temp}°C). Ba mẹ nhớ mang áo mưa đón con!</span>
+                            </div>
+                        `;
+                    } else if (w.hot) {
+                        alertRowsHtml += `
+                            <div class="weather-alert-row alert-hot">
+                                <i class="fa-solid fa-sun" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span><b>Tan học chiều (${w.timeStr}):</b> Ninh Hòa còn nắng gắt (${w.temp}°C). Nhắc con đội nón mũ che nắng!</span>
+                            </div>
+                        `;
+                    } else {
+                        alertRowsHtml += `
+                            <div class="weather-alert-row alert-fine">
+                                <i class="fa-solid fa-cloud-sun" style="font-size: 13px; flex-shrink: 0;"></i>
+                                <span><b>Tan học chiều (${w.timeStr}):</b> Trời mát mẻ (${w.temp}°C), thích hợp đón con tan trường.</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                alertBox.innerHTML = alertRowsHtml;
+                alertBox.style.display = alertRowsHtml ? 'block' : 'none';
+
+            } catch (e) {
+                // Ignore network errors
+            }
+        }
+
+        // --- 3. MENU TÙY CHỌN POPUP HEADER ---
+        function toggleMoreMenu(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('moreDropdownMenu');
+            if (menu) menu.classList.toggle('show');
+        }
+
+        function closeMoreMenu() {
+            const menu = document.getElementById('moreDropdownMenu');
+            if (menu) menu.classList.remove('show');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#moreDropdownMenu') && !e.target.closest('#moreMenuBtn')) {
+                closeMoreMenu();
+            }
+        });
+
+        // --- 4. MODAL TRA CỨU MÔN HỌC ---
+        function openSubjectSearchModal() {
+            document.getElementById('subjectSearchInput').value = '';
+            filterSubjectSearchList();
+            document.getElementById('subjectSearchModal').style.display = 'flex';
+            setTimeout(() => {
+                document.getElementById('subjectSearchInput').focus();
+            }, 100);
+        }
+
+        function closeSubjectSearchModal(e) {
+            if (!e || e.target.id === 'subjectSearchModal') {
+                document.getElementById('subjectSearchModal').style.display = 'none';
+            }
+        }
+
+        function filterSubjectSearchList() {
+            const val = document.getElementById('subjectSearchInput').value.trim().toLowerCase();
+            const container = document.getElementById('subjectSearchResults');
+            
+            let list = scheduleData;
+            if (currentProfile !== 'all') list = list.filter(i => i.be_id === currentProfile);
+
+            if (list.length === 0) {
+                container.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px;">Không có dữ liệu thời khóa biểu.</div>';
+                return;
+            }
+
+            let filtered = list.filter(item => {
+                const sub = (item.subject || '').toLowerCase();
+                const note = (item.note || '').toLowerCase();
+                const teacherName = (item.teacher && item.teacher.teacher_name) ? item.teacher.teacher_name.toLowerCase() : '';
+                return !val || sub.includes(val) || note.includes(val) || teacherName.includes(val);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div style="font-size:12px; color:#94a3b8; text-align:center; padding:12px;">Không tìm thấy tiết học nào phù hợp.</div>';
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(item => {
+                const isKid1 = item.be_id === '1';
+                const kidName = isKid1 ? (appSettings.kid1_name || 'Trâm Anh') : (appSettings.kid2_name || 'Thành Phát');
+                const dayObj = weekDates[item.day] || {};
+                const slot = parseSlotMinutes(item);
+                const timeStr = slot ? slot.timeRangeStr : getEstimatedTimeRange(item.buoi, item.tiet);
+                const cleanTiet = (item.tiet || '').split('(')[0].trim();
+                const cardDomId = `slot-card-${item.id}-${item.be_id}-${item.day}`;
+
+                html += `
+                    <div class="search-result-item" onclick="jumpToSubjectFromSearch('${item.day}', '${cardDomId}')">
+                        <div>
+                            <div style="font-size:13.5px; font-weight:800; color:#0f172a;">${item.subject}</div>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                                <span style="color:${isKid1 ? '#10b981' : '#3b82f6'}; font-weight:700;">${kidName}</span> • ${dayObj.full_name || item.day} (${cleanTiet})
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:11.5px; font-weight:700; color:#475569;">${timeStr}</div>
+                            ${item.teacher ? `<div style="font-size:10px; color:var(--primary); font-weight:700;">${item.teacher.teacher_name}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function jumpToSubjectFromSearch(dayKey, cardId) {
+            closeSubjectSearchModal();
+            changeDay(dayKey);
+            setTimeout(() => {
+                const target = document.getElementById(cardId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    target.classList.add('card-highlight-flash');
+                    setTimeout(() => {
+                        target.classList.remove('card-highlight-flash');
+                    }, 1800);
+                }
+            }, 250);
+        }
+
+        // --- 5. HUY HIỆU / NHÃN BÀI TẬP VÀ KIỂM TRA (CHỈ DÀNH CHO MOBILE AGENDA) ---
+        function getTodoTags() {
+            try {
+                const raw = localStorage.getItem('tkb_todo_tags');
+                let data = raw ? JSON.parse(raw) : {};
+                if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                    data = {};
+                }
+                const now = Date.now();
+                let hasChange = false;
+                
+                for (const key in data) {
+                    if (data[key] && data[key].expireAt && now > data[key].expireAt) {
+                        delete data[key];
+                        hasChange = true;
+                    }
+                }
+                if (hasChange) {
+                    localStorage.setItem('tkb_todo_tags', JSON.stringify(data));
+                }
+                return data;
+            } catch (e) {
+                return {};
+            }
+        }
+
+        async function syncTodoTagsToCloud(tags) {
+            if (!navigator.onLine) return;
+            try {
+                const safeTags = (tags && typeof tags === 'object' && !Array.isArray(tags)) ? tags : {};
+                await fetch('api.php?action=sync_todo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ todo_tags: safeTags })
+                });
+            } catch (e) {
+                console.log('Lưu cloud ngầm: offline hoặc server bận');
+            }
+        }
+
+        function openTodoTagModal(slotKey, subjectNameEncoded, kidId) {
+            let subjectName = '';
+            try {
+                subjectName = decodeURIComponent(subjectNameEncoded || '');
+            } catch (err) {
+                subjectName = subjectNameEncoded || '';
+            }
+
+            document.getElementById('todoSlotKey').value = slotKey;
+            document.getElementById('todoKidId').value = String(kidId || '1');
+            document.getElementById('todoModalSubjectTitle').innerHTML = `<i class="fa-solid fa-book-open"></i> Môn: <b>${subjectName}</b>`;
+            
+            const kidName = (String(kidId) === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
+            document.getElementById('todoModalKidOwner').innerText = `Tiết học của bé: ${kidName}`;
+            document.getElementById('todoPassHintText').innerText = `Bắt buộc nhập mật khẩu của bé ${kidName} hoặc mật khẩu Admin để thêm, sửa hoặc xóa.`;
+            
+            document.getElementById('todoPasswordInput').value = '';
+
+            const tags = getTodoTags();
+            const current = tags[slotKey];
+
+            const btnDel = document.getElementById('btnDeleteTag');
+            if (current) {
+                document.getElementById('todoTypeSelect').value = current.type || 'btvn';
+                document.getElementById('todoContentInput').value = current.content || '';
+                btnDel.style.display = 'block';
+            } else {
+                document.getElementById('todoTypeSelect').value = 'btvn';
+                document.getElementById('todoContentInput').value = '';
+                btnDel.style.display = 'none';
+            }
+
+            document.getElementById('todoTagModal').style.display = 'flex';
+        }
+
+        function closeTodoTagModal(e) {
+            if (!e || e.target.id === 'todoTagModal') {
+                document.getElementById('todoTagModal').style.display = 'none';
+            }
+        }
+
+        function verifyKidOrAdminPassword(kidId, enteredPass) {
+            if (!enteredPass) return false;
+            
+            const adminPass = String(appSettings.admin_pass || 'admin123').trim();
+            if (adminPass !== '' && enteredPass === adminPass) {
+                return true;
+            }
+
+            let targetPass = '';
+            if (String(kidId) === '2') {
+                targetPass = String(appSettings.kid2_pass || '123456').trim();
+            } else {
+                targetPass = String(appSettings.kid1_pass || '123456').trim();
+            }
+
+            return enteredPass === targetPass;
+        }
+
+        function saveTodoTag() {
+            const key = document.getElementById('todoSlotKey').value;
+            const kidId = document.getElementById('todoKidId').value;
+            const content = document.getElementById('todoContentInput').value.trim();
+            const type = document.getElementById('todoTypeSelect').value;
+            const expireType = document.getElementById('todoExpireSelect').value;
+            const enteredPass = document.getElementById('todoPasswordInput').value.trim();
+
+            if (!content) {
+                alert('Vui lòng nhập nội dung ghi chú!');
+                return;
+            }
+
+            if (!enteredPass) {
+                alert('Vui lòng nhập mật khẩu tài khoản của bé hoặc Admin để lưu!');
+                document.getElementById('todoPasswordInput').focus();
+                return;
+            }
+
+            if (!verifyKidOrAdminPassword(kidId, enteredPass)) {
+                alert('Mật khẩu không chính xác! Bạn phải nhập mật khẩu của đúng bé này hoặc mật khẩu Admin để lưu.');
+                document.getElementById('todoPasswordInput').focus();
+                return;
+            }
+
+            const now = new Date();
+            let expireAt = 0;
+
+            if (expireType === 'today_end') {
+                const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                expireAt = endToday.getTime();
+            } else if (expireType === '24h') {
+                expireAt = Date.now() + 24 * 60 * 60 * 1000;
+            } else if (expireType === '3d') {
+                expireAt = Date.now() + 3 * 24 * 60 * 60 * 1000;
+            } else if (expireType === 'weekend') {
+                const day = now.getDay();
+                const distToSun = (7 - day) % 7;
+                const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + distToSun, 23, 59, 59);
+                expireAt = sunday.getTime();
+            }
+
+            let tags = getTodoTags();
+            if (!tags || typeof tags !== 'object' || Array.isArray(tags)) {
+                tags = {};
+            }
+
+            tags[key] = {
+                type: type,
+                content: content,
+                expireAt: expireAt
+            };
+
+            localStorage.setItem('tkb_todo_tags', JSON.stringify(tags));
+            syncTodoTagsToCloud(tags);
+            closeTodoTagModal();
+            renderAgenda();
+        }
+
+        function removeTodoTag() {
+            const key = document.getElementById('todoSlotKey').value;
+            const kidId = document.getElementById('todoKidId').value;
+            const enteredPass = document.getElementById('todoPasswordInput').value.trim();
+
+            if (!enteredPass) {
+                alert('Vui lòng nhập mật khẩu tài khoản của bé hoặc Admin để xóa!');
+                document.getElementById('todoPasswordInput').focus();
+                return;
+            }
+
+            if (!verifyKidOrAdminPassword(kidId, enteredPass)) {
+                alert('Mật khẩu không chính xác! Bạn phải nhập mật khẩu của đúng bé này hoặc mật khẩu Admin để xóa.');
+                document.getElementById('todoPasswordInput').focus();
+                return;
+            }
+
+            let tags = getTodoTags();
+            if (tags && typeof tags === 'object' && !Array.isArray(tags) && tags[key]) {
+                delete tags[key];
+                localStorage.setItem('tkb_todo_tags', JSON.stringify(tags));
+                syncTodoTagsToCloud(tags);
+            }
+            closeTodoTagModal();
+            renderAgenda();
+        }
+
+        // --- 6. LỊCH THI TẬP TRUNG CHIA 2 TAB RIÊNG BIỆT (GIỮA KỲ & CUỐI KỲ) ---
+        function getExamSchedules() {
+            try {
+                const raw = localStorage.getItem('tkb_exam_schedules');
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        async function syncExamSchedulesToCloud(exams) {
+            if (!navigator.onLine) return;
+            try {
+                await fetch('api.php?action=sync_exams', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exams: exams })
+                });
+            } catch (e) {
+                console.log('Lưu lịch thi cloud ngầm: offline hoặc server bận');
+            }
+        }
+
+        function updateExamBadgeCount() {
+            const exams = getExamSchedules();
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+
+            const upcomingExams = exams.filter(ex => {
+                if (!ex.exam_date) return false;
+                const d = new Date(ex.exam_date + 'T23:59:59');
+                return d >= now;
+            });
+
+            const badge = document.getElementById('examBadgeCount');
+            if (badge) {
+                if (upcomingExams.length > 0) {
+                    badge.innerText = upcomingExams.length;
+                    badge.style.display = 'flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        }
+
+        function switchExamTab(kidId) {
+            currentExamTab = kidId;
+            document.querySelectorAll('.exam-tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-kid') === kidId);
+            });
+            hideExamForm();
+            renderExamScheduleList();
+        }
+
+        function openExamScheduleModal() {
+            hideExamForm();
+            currentExamTab = (currentProfile === '2') ? '2' : '1';
+            switchExamTab(currentExamTab);
+            document.getElementById('examScheduleModal').style.display = 'flex';
+        }
+
+        function closeExamScheduleModal(e) {
+            if (!e || e.target.id === 'examScheduleModal') {
+                document.getElementById('examScheduleModal').style.display = 'none';
+            }
+        }
+
+        function showExamForm(editId = null) {
+            const box = document.getElementById('examFormBox');
+            const title = document.getElementById('examFormTitle');
+            document.getElementById('examFormPassword').value = '';
+            document.getElementById('examFormKidTarget').value = currentExamTab;
+
+            if (editId) {
+                const exams = getExamSchedules();
+                const item = exams.find(x => x.id === editId);
+                if (item) {
+                    title.innerText = 'Chỉnh Sửa Môn Thi';
+                    document.getElementById('examEditId').value = item.id;
+                    document.getElementById('examFormKidTarget').value = item.be_id || currentExamTab;
+                    document.getElementById('examFormTypeSelect').value = item.exam_type || 'gk';
+                    document.getElementById('examFormSubject').value = item.subject || '';
+                    document.getElementById('examFormDate').value = item.exam_date || '';
+                    document.getElementById('examFormTime').value = item.start_time || '';
+                    document.getElementById('examFormDuration').value = item.duration || '60';
+                    document.getElementById('examFormRoom').value = item.room || '';
+                    document.getElementById('examFormSbd').value = item.sbd || '';
+                    document.getElementById('examFormNotes').value = item.notes || '';
+                }
+            } else {
+                title.innerText = 'Nhập Môn Thi Mới';
+                document.getElementById('examEditId').value = '';
+                document.getElementById('examFormTypeSelect').value = 'gk';
+                document.getElementById('examFormSubject').value = '';
+                document.getElementById('examFormDate').value = '';
+                document.getElementById('examFormTime').value = '07:30';
+                document.getElementById('examFormDuration').value = '60';
+                document.getElementById('examFormRoom').value = '';
+                document.getElementById('examFormSbd').value = '';
+                document.getElementById('examFormNotes').value = '';
+            }
+
+            box.style.display = 'block';
+            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function hideExamForm() {
+            document.getElementById('examFormBox').style.display = 'none';
+        }
+
+        function saveExamSchedule() {
+            const editId = document.getElementById('examEditId').value;
+            const kidId = document.getElementById('examFormKidTarget').value || currentExamTab;
+            const examType = document.getElementById('examFormTypeSelect').value;
+            const subject = document.getElementById('examFormSubject').value.trim();
+            const examDate = document.getElementById('examFormDate').value;
+            const startTime = document.getElementById('examFormTime').value;
+            const duration = document.getElementById('examFormDuration').value;
+            const room = document.getElementById('examFormRoom').value.trim();
+            const sbd = document.getElementById('examFormSbd').value.trim();
+            const notes = document.getElementById('examFormNotes').value.trim();
+            const enteredPass = document.getElementById('examFormPassword').value.trim();
+
+            if (!subject || !examDate || !startTime) {
+                alert('Vui lòng nhập đầy đủ: Tên môn, Ngày thi và Giờ thi!');
+                return;
+            }
+
+            if (!enteredPass) {
+                alert('Vui lòng nhập mật khẩu tài khoản của bé hoặc Admin để lưu!');
+                document.getElementById('examFormPassword').focus();
+                return;
+            }
+
+            if (!verifyKidOrAdminPassword(kidId, enteredPass)) {
+                alert('Mật khẩu không chính xác! Bạn phải nhập đúng mật khẩu của bé này hoặc mật khẩu Admin.');
+                document.getElementById('examFormPassword').focus();
+                return;
+            }
+
+            let exams = getExamSchedules();
+
+            if (editId) {
+                const idx = exams.findIndex(x => x.id === editId);
+                if (idx !== -1) {
+                    exams[idx] = {
+                        id: editId,
+                        be_id: kidId,
+                        exam_type: examType,
+                        subject: subject,
+                        exam_date: examDate,
+                        start_time: startTime,
+                        duration: duration,
+                        room: room,
+                        sbd: sbd,
+                        notes: notes
+                    };
+                }
+            } else {
+                exams.push({
+                    id: 'exam_' + Date.now(),
+                    be_id: kidId,
+                    exam_type: examType,
+                    subject: subject,
+                    exam_date: examDate,
+                    start_time: startTime,
+                    duration: duration,
+                    room: room,
+                    sbd: sbd,
+                    notes: notes
+                });
+            }
+
+            localStorage.setItem('tkb_exam_schedules', JSON.stringify(exams));
+            syncExamSchedulesToCloud(exams);
+            hideExamForm();
+            renderExamScheduleList();
+            updateExamBadgeCount();
+        }
+
+        function deleteExamSchedule(examId, kidId) {
+            const pass = prompt('Nhập mật khẩu của bé hoặc Admin để xóa môn thi này:');
+            if (!pass) return;
+
+            if (!verifyKidOrAdminPassword(kidId, pass.trim())) {
+                alert('Mật khẩu không chính xác! Không thể xóa lịch thi.');
+                return;
+            }
+
+            let exams = getExamSchedules();
+            exams = exams.filter(x => x.id !== examId);
+            localStorage.setItem('tkb_exam_schedules', JSON.stringify(exams));
+            syncExamSchedulesToCloud(exams);
+            renderExamScheduleList();
+            updateExamBadgeCount();
+        }
+
+        function renderExamScheduleList() {
+            const container = document.getElementById('examScheduleListContainer');
+            const subtitle = document.getElementById('examModalSubtitle');
+            let exams = getExamSchedules();
+
+            exams = exams.filter(x => x.be_id === currentExamTab);
+            const kidName = (currentExamTab === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
+            if (subtitle) subtitle.innerText = `Lịch thi của bé: ${kidName}`;
+
+            if (exams.length === 0) {
+                container.innerHTML = `<div style="font-size:12px; color:#94a3b8; text-align:center; padding:24px 10px;">Chưa có môn thi nào cho bé ${kidName}. Nhấn "+ Thêm môn thi" ở trên để tạo.</div>`;
+                return;
+            }
+
+            exams.sort((a, b) => {
+                const dateA = new Date(a.exam_date + 'T' + (a.start_time || '00:00'));
+                const dateB = new Date(b.exam_date + 'T' + (b.start_time || '00:00'));
+                return dateA - dateB;
+            });
+
+            const typeLabels = {
+                gk: '🏆 Thi Giữa kỳ',
+                hk: '🎯 Thi Cuối kỳ'
+            };
+
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+
+            let html = '';
+            exams.forEach(item => {
+                let countdownStr = '';
+                if (item.exam_date) {
+                    const exDate = new Date(item.exam_date + 'T00:00:00');
+                    const diffDays = Math.ceil((exDate - now) / (1000 * 60 * 60 * 24));
+                    if (diffDays === 0) {
+                        countdownStr = '<span style="color:#ea580c; font-weight:800;">🔥 Hôm nay thi</span>';
+                    } else if (diffDays > 0) {
+                        countdownStr = `<span style="color:#059669; font-weight:800;">⏳ Còn ${diffDays} ngày</span>`;
+                    } else {
+                        countdownStr = '<span style="color:#94a3b8; font-weight:700;">Đã thi xong</span>';
+                    }
+                }
+
+                let formattedDate = item.exam_date;
+                if (item.exam_date) {
+                    const parts = item.exam_date.split('-');
+                    if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                }
+
+                html += `
+                    <div class="exam-card-item">
+                        <div class="exam-card-top">
+                            <div>
+                                <span class="exam-type-badge exam-type-${item.exam_type || 'gk'}">${typeLabels[item.exam_type] || 'Thi'}</span>
+                            </div>
+                            <div style="font-size:11px;">${countdownStr}</div>
+                        </div>
+
+                        <div class="exam-sub-title">${item.subject}</div>
+
+                        <div class="exam-meta-line">
+                            <span><i class="fa-regular fa-calendar-days"></i> ${formattedDate}</span>
+                            <span><i class="fa-regular fa-clock"></i> ${item.start_time || ''} (${item.duration || 60}p)</span>
+                            ${item.room ? `<span><i class="fa-solid fa-door-open"></i> Phòng: ${item.room}</span>` : ''}
+                            ${item.sbd ? `<span><i class="fa-solid fa-id-card"></i> SBD: ${item.sbd}</span>` : ''}
+                        </div>
+
+                        ${item.notes ? `
+                            <div class="exam-note-box">
+                                <i class="fa-solid fa-triangle-exclamation"></i> <b>Cần mang:</b> ${item.notes}
+                            </div>
+                        ` : ''}
+
+                        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px; padding-top:6px; border-top:1px solid #f1f5f9;">
+                            <button type="button" onclick="showExamForm('${item.id}')" style="background:none; border:none; color:var(--primary); font-size:11px; font-weight:700; cursor:pointer;">
+                                <i class="fa-solid fa-pen"></i> Sửa
+                            </button>
+                            <button type="button" onclick="deleteExamSchedule('${item.id}', '${item.be_id}')" style="background:none; border:none; color:#dc2626; font-size:11px; font-weight:700; cursor:pointer;">
+                                <i class="fa-solid fa-trash-can"></i> Xóa
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // --- 7. TRỢ LÝ GIỌNG NÓI ---
+        let isSpeaking = false;
+
+        function toggleVoiceSpeech() {
+            if (!('speechSynthesis' in window)) {
+                alert('Rất tiếc, trình duyệt của bạn không hỗ trợ tính năng đọc bằng giọng nói.');
+                return;
+            }
+
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                setSpeakingUI(false);
+                return;
+            }
+
+            const speechText = generateDailySpeechText();
+            if (!speechText) {
+                alert('Không có dữ liệu thời khóa biểu để đọc.');
+                return;
+            }
+
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(speechText);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            const viVoice = voices.find(v => v.lang.includes('vi') || v.lang.includes('VIE'));
+            if (viVoice) {
+                utterance.voice = viVoice;
+            }
+
+            utterance.onstart = () => {
+                setSpeakingUI(true);
+            };
+
+            utterance.onend = () => {
+                setSpeakingUI(false);
+            };
+
+            utterance.onerror = () => {
+                setSpeakingUI(false);
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function setSpeakingUI(speaking) {
+            isSpeaking = speaking;
+            const btn = document.getElementById('voiceAssistantBtn');
+            const icon = document.getElementById('voiceIcon');
+            const txt = document.getElementById('voiceBtnText');
+
+            if (!btn || !icon || !txt) return;
+
+            if (speaking) {
+                btn.classList.add('is-speaking');
+                icon.className = 'fa-solid fa-circle-stop';
+                txt.innerText = 'Dừng đọc';
+            } else {
+                btn.classList.remove('is-speaking');
+                icon.className = 'fa-solid fa-volume-high';
+                txt.innerText = 'Đọc lịch';
+            }
+        }
+
+        function generateDailySpeechText() {
+            const dayInfo = weekDates[currentDay] || {};
+            let list = scheduleData.filter(i => i.day === currentDay);
+            const todoTags = getTodoTags();
+
+            if (list.length === 0) {
+                return `${dayInfo.full_name || ''}, ngày ${dayInfo.date || ''} tháng ${dayInfo.month || ''}. Hôm nay không có lịch học. Chúc các bé nghỉ ngơi vui vẻ!`;
+            }
+
+            let text = `Thời khóa biểu ${dayInfo.full_name || ''}, ngày ${dayInfo.date || ''} tháng ${dayInfo.month || ''}. `;
+
+            const readForKid = (kId) => {
+                const isKid1 = (kId === '1');
+                const kidName = isKid1 ? (appSettings.kid1_name || 'Trâm Anh') : (appSettings.kid2_name || 'Thành Phát');
+                let kidList = list.filter(i => i.be_id === kId);
+
+                if (kidList.length === 0) {
+                    return `Bé ${kidName} hôm nay không có tiết học nào. `;
+                }
+
+                kidList.sort((a, b) => getItemStartMinutes(a) - getItemStartMinutes(b));
+
+                let kidText = `Lịch học của bé ${kidName} có ${kidList.length} tiết: `;
+
+                let buoiGroups = {};
+                kidList.forEach(item => {
+                    let b = item.buoi || 'SÁNG';
+                    if (!buoiGroups[b]) buoiGroups[b] = [];
+                    buoiGroups[b].push(item);
+                });
+
+                for (let b in buoiGroups) {
+                    kidText += `Buổi ${b.toLowerCase()}: `;
+                    buoiGroups[b].forEach(item => {
+                        const cleanTiet = (item.tiet || '').split('(')[0].trim();
+                        const slot = parseSlotMinutes(item);
+                        const timeStartStr = slot ? slot.timeRangeStr.split('-')[0].trim() : '';
+                        
+                        kidText += `${cleanTiet} môn ${item.subject} lúc ${timeStartStr}. `;
+                        
+                        const slotKey = `${item.id}_${item.be_id}_${item.day}`;
+                        if (todoTags[slotKey]) {
+                            kidText += `Lưu ý có ${todoTags[slotKey].content}. `;
+                        } else if (item.note) {
+                            kidText += `Ghi chú: ${item.note}. `;
+                        }
+                    });
+                }
+                return kidText;
+            };
+
+            if (currentProfile === 'all') {
+                text += readForKid('1') + ' ' + readForKid('2');
+            } else {
+                text += readForKid(currentProfile);
+            }
+
+            return text;
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+
+        // --- LOCALSTORAGE OFFLINE ---
+        function saveToOfflineStorage() {
+            try {
+                localStorage.setItem('tkb_offline_scheduleData', JSON.stringify(scheduleData));
+                localStorage.setItem('tkb_offline_rawSchedules', JSON.stringify(rawSchedules));
+                localStorage.setItem('tkb_offline_teachersMap', JSON.stringify(teachersMap));
+                localStorage.setItem('tkb_offline_appSettings', JSON.stringify(appSettings));
+            } catch (e) {
+                console.warn('Không thể ghi vào localStorage:', e);
+            }
+        }
+
+        function loadFromOfflineStorage() {
+            try {
+                const sData = localStorage.getItem('tkb_offline_scheduleData');
+                const rData = localStorage.getItem('tkb_offline_rawSchedules');
+                const tData = localStorage.getItem('tkb_offline_teachersMap');
+                const setts = localStorage.getItem('tkb_offline_appSettings');
+
+                if (sData) scheduleData = JSON.parse(sData);
+                if (rData) rawSchedules = JSON.parse(rData);
+                if (tData) teachersMap = JSON.parse(tData);
+                if (setts) {
+                    appSettings = Object.assign({}, appSettings, JSON.parse(setts));
+                    updateHeaderNames();
+                }
+            } catch (e) {
+                console.warn('Không thể đọc từ localStorage:', e);
+            }
+        }
+
+        function updateHeaderNames() {
+            if (document.getElementById('kid1NameNav')) {
+                document.getElementById('kid1NameNav').innerText = appSettings.kid1_name || 'Trâm Anh';
+                document.getElementById('kid1ClassNav').innerText = 'Lớp ' + (appSettings.kid1_class || '6A3');
+            }
+            if (document.getElementById('kid2NameNav')) {
+                document.getElementById('kid2NameNav').innerText = appSettings.kid2_name || 'Thành Phát';
+                document.getElementById('kid2ClassNav').innerText = 'Lớp ' + (appSettings.kid2_class || '10A4');
+            }
+        }
+
+        if (!scheduleData || scheduleData.length === 0) {
+            loadFromOfflineStorage();
+        } else {
+            saveToOfflineStorage();
+        }
+
+        // --- TOAST TRẠNG THÁI MẠNG ---
+        let toastTimeout = null;
+        function showNetworkToast(type, message) {
+            const toast = document.getElementById('networkToast');
+            const icon = document.getElementById('networkToastIcon');
+            const msg = document.getElementById('networkToastMsg');
+
+            if (!toast || !icon || !msg) return;
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+
+            toast.className = 'network-toast ' + (type === 'online' ? 'toast-online' : 'toast-offline');
+            icon.className = 'fa-solid ' + (type === 'online' ? 'fa-wifi' : 'fa-plane');
+            msg.innerText = message;
+
+            toast.classList.add('show');
+
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        window.addEventListener('offline', () => {
+            showNetworkToast('offline', 'Mất kết nối mạng - Đang xem Offline');
+        });
+
+        window.addEventListener('online', () => {
+            showNetworkToast('online', 'Đã kết nối lại trực tuyến');
+            syncDataFromServer();
+        });
+
+        // --- XỬ LÝ THỜI GIAN ---
+        function getEstimatedTimeRange(buoi, tiet) {
+            const num = parseInt((tiet || '').replace(/\D/g, '')) || 1;
+            const b = (buoi || '').trim().toUpperCase();
+            if (b.includes('SÁNG') || b.includes('SANG')) {
+                const times = ['07:15 - 08:00', '08:05 - 08:50', '09:05 - 09:50', '10:00 - 10:45', '10:50 - 11:35'];
+                return times[num - 1] || '07:30 - 11:15';
+            } else if (b.includes('CHIỀU') || b.includes('CHIEU')) {
+                const times = ['13:30 - 14:15', '14:20 - 15:05', '15:20 - 16:05', '16:10 - 16:55', '17:00 - 17:45'];
+                return times[num - 1] || '13:30 - 17:00';
+            }
+            return '18:00 - 19:30';
+        }
+
+        function timeToMinutes(h, m) {
+            return parseInt(h, 10) * 60 + parseInt(m, 10);
+        }
+
+        function parseSlotMinutes(item) {
+            const customText = (item.note || '') + ' ' + (item.subject || '');
+            let match = customText.match(/(\d{1,2})[:hH](\d{2})\s*[~-]\s*(\d{1,2})[:hH](\d{2})/);
+            
+            if (!match) {
+                match = (item.tiet || '').match(/(\d{1,2})[:hH](\d{2})\s*[~-]\s*(\d{1,2})[:hH](\d{2})/);
+            }
+            
+            if (!match) {
+                const defaultRange = getEstimatedTimeRange(item.buoi, item.tiet);
+                match = defaultRange.match(/(\d{1,2})[:hH](\d{2})\s*[~-]\s*(\d{1,2})[:hH](\d{2})/);
+            }
+
+            if (match) {
+                let start = timeToMinutes(match[1], match[2]);
+                let end = timeToMinutes(match[3], match[4]);
+                let timeRangeStr = match[1].padStart(2, '0') + ':' + match[2] + ' - ' + match[3].padStart(2, '0') + ':' + match[4];
+                return { start, end, timeRangeStr };
+            }
+
+            return null;
+        }
+
+        function getItemStartMinutes(item) {
+            const slot = parseSlotMinutes(item);
+            if (slot) return slot.start;
+
+            const b = (item.buoi || '').trim().toUpperCase();
+            let base = 7 * 60;
+            if (b.includes('CHIỀU') || b.includes('CHIEU')) {
+                base = 13 * 60 + 30;
+            } else if (b.includes('TỐI') || b.includes('TOI')) {
+                base = 18 * 60;
+            }
+
+            const match = (item.tiet || '').match(/(?:tiết\s*|^)(\d+)/i);
+            const num = match ? parseInt(match[1]) : 1;
+            return base + (num - 1) * 50;
+        }
+
+        function changeProfile(profile) {
+            currentProfile = profile;
+            document.querySelectorAll('.profile-pill').forEach(el => el.classList.toggle('active', el.getAttribute('data-target') === profile));
+            document.documentElement.style.setProperty('--active-theme-color', profileColors[profile] || profileColors['all']);
+            renderAgenda();
+            updateDynamicWidget();
+            renderLandscapeGrid();
+            checkRainAlert();
+
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                setSpeakingUI(false);
+            }
+        }
+
+        function changeDay(dayKey) {
+            currentDay = dayKey;
+            document.querySelectorAll('.date-item').forEach(el => el.classList.toggle('active', el.getAttribute('data-day') === dayKey));
+            
+            const activeChip = document.getElementById('chip-' + dayKey);
+            if (activeChip) {
+                activeChip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+
+            renderAgenda();
+            updateDynamicWidget();
+            checkRainAlert();
+
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                setSpeakingUI(false);
+            }
+        }
+
+        function goToToday() {
+            refreshRealTimeDates();
+            changeDay(realTodayKey);
+        }
+
+        function renderAgenda() {
+            const container = document.getElementById('timelineStream');
+            let list = scheduleData.filter(i => i.day === currentDay);
+            if (currentProfile !== 'all') list = list.filter(i => i.be_id === currentProfile);
+
+            const dayInfo = weekDates[currentDay] || {};
+
+            if (list.length === 0) {
+                container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-mug-hot" style="font-size:28px; color:#cbd5e1; margin-bottom:8px;"></i><p>${dayInfo.full_name || ''} (${dayInfo.full_date || ''}) không có tiết học nào 🎉</p></div>`;
+                return;
+            }
+
+            list.sort((a, b) => {
+                const startA = getItemStartMinutes(a);
+                const startB = getItemStartMinutes(b);
+                if (startA !== startB) return startA - startB;
+
+                const matchA = (a.tiet || '').match(/(?:tiết\s*|^)(\d+)/i);
+                const numA = matchA ? parseInt(matchA[1]) : 1;
+                const matchB = (b.tiet || '').match(/(?:tiết\s*|^)(\d+)/i);
+                const numB = matchB ? parseInt(matchB[1]) : 1;
+                if (numA !== numB) return numA - numB;
+
+                return (parseInt(a.be_id) || 1) - (parseInt(b.be_id) || 1);
+            });
+            
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const isViewingToday = (currentDay === realTodayKey);
+            const todoTags = getTodoTags();
+
+            let html = '';
+            let lastBuoi = null;
+
+            list.forEach(item => {
+                if (item.buoi !== lastBuoi) {
+                    html += `<div class="buoi-divider"><span class="buoi-pill">BUỔI ${item.buoi}</span></div>`;
+                    lastBuoi = item.buoi;
+                }
+
+                const cleanTiet = (item.tiet || '').split('(')[0].trim() || 'Tiết';
+                const slotInfo = parseSlotMinutes(item);
+                const rawTimeRange = slotInfo ? slotInfo.timeRangeStr : getEstimatedTimeRange(item.buoi, item.tiet);
+                
+                const timeParts = rawTimeRange.split(/\s*[-~]\s*/);
+                const formattedTimeRange = (timeParts.length === 2) 
+                    ? `${timeParts[0]}&nbsp;&ndash;&nbsp;${timeParts[1]}` 
+                    : rawTimeRange;
+
+                const isKid1 = item.be_id === '1';
+                const kidLabel = isKid1 ? (appSettings.kid1_name || 'Trâm Anh') : (appSettings.kid2_name || 'Thành Phát');
+                const teacherObjStr = item.teacher ? encodeURIComponent(JSON.stringify(item.teacher)).replace(/'/g, "%27") : '';
+
+                let isCurrentSlot = false;
+                let isPastSlot = false;
+                let progressPercent = 0;
+                let elapsedMinutes = 0;
+                let totalSlotDuration = 45;
+
+                if (isViewingToday && slotInfo) {
+                    if (currentMinutes >= slotInfo.start && currentMinutes <= slotInfo.end) {
+                        isCurrentSlot = true;
+                        totalSlotDuration = slotInfo.end - slotInfo.start || 45;
+                        elapsedMinutes = currentMinutes - slotInfo.start;
+                        progressPercent = Math.min(100, Math.max(0, Math.round((elapsedMinutes / totalSlotDuration) * 100)));
+                    } else if (currentMinutes > slotInfo.end) {
+                        isPastSlot = true;
+                    }
+                }
+
+                const cardDomId = `slot-card-${item.id}-${item.be_id}-${item.day}`;
+                const slotTagKey = `${item.id}_${item.be_id}_${item.day}`;
+                const existingTag = todoTags[slotTagKey];
+                const safeSubEnc = encodeURIComponent(item.subject || '').replace(/'/g, "%27");
+
+                const tagTypeLabels = {
+                    btvn: '📝 BTVN',
+                    kt15: '⏱️ KT 15p',
+                    kt1t: '📑 KT 1 tiết',
+                    gk: '🏆 Giữa kỳ',
+                    hk: '🎯 Thi HK',
+                    note: '📌 Lưu ý'
+                };
+
+                html += `
+                    <div class="subject-card ${isCurrentSlot ? 'is-current-slot' : ''} ${isPastSlot ? 'is-past-slot' : ''}" id="${cardDomId}">
+                        <div class="timeline-node"></div>
+                        <div class="card-top">
+                            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+                                <span class="kid-tag ${isKid1 ? 'kid-tag-1' : 'kid-tag-2'}"><i class="fa-solid fa-user-graduate"></i> ${kidLabel}</span>
+                                <span class="buoi-tag"><i class="fa-regular fa-sun"></i> Buổi ${item.buoi.toLowerCase()}</span>
+                                ${isCurrentSlot ? `<span class="current-badge"><i class="fa-solid fa-satellite-dish"></i> ĐANG DIỄN RA</span>` : ''}
+                                ${isPastSlot ? `<span style="font-size:10px; font-weight:800; color:#047857; background:#dcfce7; padding:2px 7px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;"><i class="fa-solid fa-check"></i> Đã học xong</span>` : ''}
+                            </div>
+
+                            <div class="time-box-right">
+                                <span class="tiet-label">${cleanTiet}</span>
+                                <span class="tiet-range"><i class="fa-regular fa-clock" style="font-size:10.5px;"></i> ${formattedTimeRange}</span>
+                            </div>
+                        </div>
+
+                        ${isCurrentSlot ? `
+                            <div class="live-progress-container">
+                                <div class="live-progress-bar" style="width: ${progressPercent}%;"></div>
+                            </div>
+                            <div class="live-progress-label">
+                                <span>Đã học ${elapsedMinutes}/${totalSlotDuration} phút</span>
+                                <span>${progressPercent}%</span>
+                            </div>
+                        ` : ''}
+
+                        <div class="subject-line-row">
+                            <div class="subject-title-link" onclick="openTodoTagModal('${slotTagKey}', '${safeSubEnc}', '${item.be_id}')">
+                                <span>${item.subject}</span>
+                            </div>
+
+                            ${item.teacher ? `
+                                <button type="button" class="teacher-tag-btn" onclick="event.stopPropagation(); showTeacherDetails('${safeSubEnc}', '${teacherObjStr}')">
+                                    <i class="fa-solid fa-user-tie"></i> ${item.teacher.teacher_name}
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        ${existingTag ? `
+                            <div class="custom-todo-badge todo-type-${existingTag.type}" onclick="openTodoTagModal('${slotTagKey}', '${safeSubEnc}', '${item.be_id}')">
+                                <span><b>${tagTypeLabels[existingTag.type] || '📌'}:</b> ${existingTag.content}</span>
+                                <i class="fa-solid fa-pen-to-square" style="font-size:11px; opacity:0.7;"></i>
+                            </div>
+                        ` : `
+                            <button type="button" class="add-badge-btn" onclick="openTodoTagModal('${slotTagKey}', '${safeSubEnc}', '${item.be_id}')">
+                                <i class="fa-solid fa-plus"></i> Thêm bài tập / kiểm tra
+                            </button>
+                        `}
+
+                        ${item.note ? `
+                            <div class="parent-note">
+                                <i class="fa-solid fa-comment-dots"></i>
+                                <div>${item.note}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // --- 8. BẢNG THỜI KHÓA BIỂU DẠNG LƯỚI (CHIỀU CAO TỐI ƯU HÓA ĐỂ IN VỪA 1 TRANG A4) ---
+        function renderLandscapeGrid() {
+            const container = document.getElementById('landscapeGridContainer');
+            if (!container) return;
+
+            let kids = (currentProfile === 'all') ? ['1', '2'] : [currentProfile];
+            let html = '';
+
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+            kids.forEach(kId => {
+                const isKid1 = (kId === '1');
+                const kidName = isKid1 
+                    ? `👧 Bé ${appSettings.kid1_name || 'Trâm Anh'} - Lớp ${appSettings.kid1_class || '6A3'}` 
+                    : `👦 Bé ${appSettings.kid2_name || 'Thành Phát'} - Lớp ${appSettings.kid2_class || '10A4'}`;
+                const kidColor = isKid1 ? '#10b981' : '#3b82f6';
+                const kidRows = rawSchedules.filter(r => String(r.be_name) === String(kId));
+
+                if (kidRows.length === 0) return;
+
+                const buoiOrder = ['SÁNG', 'CHIỀU', 'TỐI'];
+                let grouped = {};
+                buoiOrder.forEach(b => { grouped[b] = []; });
+                kidRows.forEach(r => {
+                    let b = (r.buoi || '').toUpperCase();
+                    if (!grouped[b]) grouped[b] = [];
+                    grouped[b].push(r);
+                });
+
+                html += `
+                    <div class="landscape-table-card" id="printCard_${kId}">
+                        <div class="landscape-card-header">
+                            <div class="landscape-title" style="color: ${kidColor};">
+                                <i class="fa-solid fa-table-cells"></i> ${kidName}
+                            </div>
+                            <button type="button" class="print-tkb-btn" onclick="printSingleSchedule('${kId}')">
+                                <i class="fa-solid fa-print"></i> In thời khóa biểu
+                            </button>
+                        </div>
+                        <div class="landscape-table-wrapper">
+                            <table class="landscape-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-buoi">BUỔI</th>
+                                        <th class="col-tiet">TIẾT / GIỜ</th>
+                                        ${daysKeysList.map(dk => `<th class="col-day-header">${(weekDates[dk] && weekDates[dk].full_name) || dk}<br><span style="font-size:9.5px; font-weight:600; color:#64748b;">(${ (weekDates[dk] && weekDates[dk].full_date) || '' })</span></th>`).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                buoiOrder.forEach(buoiKey => {
+                    let rows = grouped[buoiKey] || [];
+                    if (rows.length === 0) return;
+
+                    let standardSlots = [];
+                    rows.forEach(r => {
+                        let cleanTiet = (r.tiet || '').split('(')[0].trim();
+                        let slotRange = parseSlotMinutes(r);
+                        let rawTime = slotRange ? slotRange.timeRangeStr : getEstimatedTimeRange(r.buoi, r.tiet);
+                        let parts = rawTime.split(/\s*[-~]\s*/);
+                        let formattedTime = (parts.length === 2) ? `${parts[0]}&nbsp;&ndash;&nbsp;${parts[1]}` : rawTime;
+
+                        let startMin = slotRange ? slotRange.start : getItemStartMinutes(r);
+                        let endMin = slotRange ? slotRange.end : (startMin + 45);
+                        if (endMin <= startMin) endMin = startMin + 45;
+
+                        standardSlots.push({
+                            cleanTiet,
+                            formattedTime,
+                            startMin,
+                            endMin
+                        });
+                    });
+
+                    // Chiều cao tiêu chuẩn mỗi dòng tiết giảm xuống 50px để bảng TKB vừa khít 1 trang A4 ngang
+                    const standardSlotHeight = 50;
+                    const totalTrackHeight = standardSlots.length * standardSlotHeight;
+
+                    html += `<tr>`;
+                    // 1. Cột BUỔI
+                    html += `<td class="col-buoi" style="height:${totalTrackHeight}px;">${buoiKey}</td>`;
+
+                    // 2. Cột TIẾT
+                    html += `<td class="col-tiet" style="padding:0; height:${totalTrackHeight}px;">`;
+                    standardSlots.forEach((slot, idx) => {
+                        let isLast = idx === standardSlots.length - 1;
+                        html += `
+                            <div class="landscape-time-col-cell" style="height:${standardSlotHeight}px; ${isLast ? 'border-bottom:none;' : ''}">
+                                <b>${slot.cleanTiet}</b>
+                                <div style="font-size:9px; color:#64748b; margin-top:1px; white-space:nowrap;">${slot.formattedTime}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</td>`;
+
+                    // 3. Các cột THỨ (T2 -> CN)
+                    daysKeysList.forEach(dk => {
+                        let dayItems = [];
+                        rows.forEach((r, slotIndex) => {
+                            let rawCell = trimString(r[dk] || '');
+                            if (rawCell && rawCell !== '-') {
+                                let lines = rawCell.split("\n").map(l => l.trim()).filter(l => l !== '');
+                                let subject = lines[0] || '';
+                                let note = lines.slice(1).join(' ').trim();
+                                let teacherId = r['t_' + dk] || null;
+                                let teacherObj = (teacherId && teachersMap[teacherId]) ? teachersMap[teacherId] : null;
+
+                                let currentCellItem = {
+                                    buoi: r.buoi,
+                                    tiet: r.tiet,
+                                    subject: subject,
+                                    note: note
+                                };
+                                let cellSlotRange = parseSlotMinutes(currentCellItem);
+                                let start = cellSlotRange ? cellSlotRange.start : getItemStartMinutes(r);
+                                let end = cellSlotRange ? cellSlotRange.end : (start + 45);
+                                if (end <= start) end = start + 45;
+
+                                dayItems.push({
+                                    id: r.id,
+                                    be_id: kId,
+                                    day: dk,
+                                    subject: subject,
+                                    note: note,
+                                    teacher: teacherObj,
+                                    start: start,
+                                    end: end,
+                                    slotIndex: slotIndex,
+                                    slotKey: `${r.id}_${kId}_${dk}`
+                                });
+                            }
+                        });
+
+                        html += `<td style="height:${totalTrackHeight}px; position:relative; padding:0;">`;
+                        html += `<div class="landscape-day-track" style="height:${totalTrackHeight}px;">`;
+
+                        // Đường kẻ ngang ngăn cách từng tiết chuẩn
+                        for (let s = 1; s < standardSlots.length; s++) {
+                            html += `<div class="landscape-slot-grid-line" style="top:${s * standardSlotHeight}px;"></div>`;
+                        }
+
+                        // Hàm nội suy thời gian sang toạ độ Y chính xác theo từng hàng tiết
+                        function getPixelForMinute(targetMin) {
+                            if (standardSlots.length === 0) return 0;
+                            if (targetMin <= standardSlots[0].startMin) return 0;
+                            const lastIndex = standardSlots.length - 1;
+                            if (targetMin >= standardSlots[lastIndex].endMin) return totalTrackHeight;
+
+                            for (let i = 0; i < standardSlots.length; i++) {
+                                const sSlot = standardSlots[i];
+                                if (targetMin >= sSlot.startMin && targetMin <= sSlot.endMin) {
+                                    const progress = (targetMin - sSlot.startMin) / (sSlot.endMin - sSlot.startMin || 45);
+                                    return i * standardSlotHeight + progress * standardSlotHeight;
+                                }
+                                if (i < lastIndex && targetMin > sSlot.endMin && targetMin < standardSlots[i + 1].startMin) {
+                                    return (i + 1) * standardSlotHeight;
+                                }
+                            }
+                            return totalTrackHeight;
+                        }
+
+                        // Hiển thị các môn học: Giảm khoảng cách viền trên dưới tối đa
+                        dayItems.forEach(item => {
+                            const curStandard = standardSlots[item.slotIndex];
+                            let topPx, heightPx;
+
+                            const isAlignedWithStandard = curStandard && (Math.abs(item.start - curStandard.startMin) <= 3) && (Math.abs(item.end - curStandard.endMin) <= 3);
+
+                            if (isAlignedWithStandard) {
+                                topPx = item.slotIndex * standardSlotHeight + 2;
+                                heightPx = standardSlotHeight - 4;
+                            } else {
+                                const rawTop = getPixelForMinute(item.start);
+                                const rawBottom = getPixelForMinute(item.end);
+
+                                topPx = rawTop + 2;
+                                heightPx = (rawBottom - rawTop) - 4;
+
+                                heightPx = Math.max(heightPx, 32);
+                                if ((topPx + heightPx) > totalTrackHeight - 2) {
+                                    heightPx = totalTrackHeight - topPx - 2;
+                                }
+                            }
+
+                            let isCurrentSlot = false;
+                            let isPastSlot = false;
+                            if (dk === realTodayKey) {
+                                if (currentMinutes >= item.start && currentMinutes <= item.end) {
+                                    isCurrentSlot = true;
+                                } else if (currentMinutes > item.end) {
+                                    isPastSlot = true;
+                                }
+                            }
+
+                            let safeSubEnc = encodeURIComponent(item.subject).replace(/'/g, "%27");
+                            let teacherObjStr = item.teacher ? encodeURIComponent(JSON.stringify(item.teacher)).replace(/'/g, "%27") : '';
+
+                            html += `
+                                <div class="grid-sub-box ${isCurrentSlot ? 'is-current-slot' : ''} ${isPastSlot ? 'is-past-slot' : ''}" 
+                                     style="top:${topPx}px; height:${heightPx}px;">
+                                    <div class="grid-sub-title">${item.subject}</div>
+                                    ${item.teacher ? `
+                                        <div class="grid-sub-teacher" onclick="event.stopPropagation(); showTeacherDetails('${safeSubEnc}', '${teacherObjStr}')">
+                                            <i class="fa-solid fa-user-tie" style="font-size:8px;"></i> ${item.teacher.teacher_name}
+                                        </div>
+                                    ` : ''}
+                                    ${item.note ? `<div class="grid-sub-note"><i class="fa-solid fa-comment-dots" style="margin-right:2px; font-size:7.5px;"></i>${item.note}</div>` : ''}
+                                </div>
+                            `;
+                        });
+
+                        html += `</div></td>`;
+                    });
+
+                    html += `</tr>`;
+                });
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function printSingleSchedule(kidId) {
+            document.querySelectorAll('.landscape-table-card').forEach(c => c.classList.remove('target-print'));
+            const target = document.getElementById('printCard_' + kidId);
+            if (target) {
+                target.classList.add('target-print');
+                document.body.classList.add('printing-single');
+                window.print();
+                document.body.classList.remove('printing-single');
+                target.classList.remove('target-print');
+            }
+        }
+
+        function trimString(str) {
+            return (str || '').replace(/\r/g, '').trim();
+        }
+
+        function showTeacherDetails(subEncoded, teacherEncoded) {
+            let subject = '';
+            try {
+                subject = decodeURIComponent(subEncoded || '');
+            } catch (e) {
+                subject = subEncoded || '';
+            }
+            const container = document.getElementById('singleTeacherBody');
+
+            if (!teacherEncoded) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding: 20px 10px;">
+                        <i class="fa-solid fa-circle-info" style="font-size: 32px; color: #94a3b8; margin-bottom: 8px;"></i>
+                        <h4 style="font-size: 15px; font-weight: 800; color:#1e293b;">Môn: ${subject}</h4>
+                        <p style="font-size: 12px; color: #64748b; margin-top: 4px;">Môn này chưa được gán thông tin giáo viên trong trang quản trị.</p>
+                    </div>
+                `;
+            } else {
+                const tc = JSON.parse(decodeURIComponent(teacherEncoded));
+                const cleanPhone = (tc.phone || '').replace(/[^0-9]/g, '');
+
+                container.innerHTML = `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:16px;">
+                        <div style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase;">Bộ Môn: ${tc.subject_name}</div>
+                        <h3 style="font-size:17px; font-weight:800; margin:4px 0 10px; color:#0f172a;">${tc.teacher_name}</h3>
+                        
+                        ${tc.phone ? `
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:white; padding:10px 12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:8px;">
+                                <div>
+                                    <div style="font-size:10px; color:#64748b; font-weight:700;">SỐ ĐIỆN THOẠI</div>
+                                    <div style="font-size:15px; font-weight:800; color:#047857;">${tc.phone}</div>
+                                </div>
+                                <div class="teacher-action-btns">
+                                    <a href="tel:${tc.phone}" class="t-call-btn"><i class="fa-solid fa-phone"></i> Gọi</a>
+                                    <a href="https://zalo.me/${cleanPhone}" target="_blank" rel="noopener" class="t-zalo-btn"><i class="fa-solid fa-comment-dots"></i> Zalo</a>
+                                </div>
+                            </div>
+                        ` : '<p style="font-size:12px; color:#64748b;">Chưa có số điện thoại liên hệ.</p>'}
+
+                        ${tc.note ? `<div style="font-size:12px; color:#475569; background:#fff; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">📝 <b>Ghi chú:</b> ${tc.note}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('singleTeacherModal').style.display = 'flex';
+        }
+
+        function closeSingleTeacherModal(e) {
+            if (!e || e.target.id === 'singleTeacherModal') document.getElementById('singleTeacherModal').style.display = 'none';
+        }
+
+        function openAllTeachersModal() { document.getElementById('allTeachersModal').style.display = 'flex'; }
+        function closeAllTeachersModal(e) {
+            if (!e || e.target.id === 'allTeachersModal') document.getElementById('allTeachersModal').style.display = 'none';
+        }
+
+        function openSubjectSummaryModal() {
+            const container = document.getElementById('subjectSummaryBody');
+            let kids = (currentProfile === 'all') ? ['1', '2'] : [currentProfile];
+            let html = '';
+
+            kids.forEach(kId => {
+                const isKid1 = (kId === '1');
+                const kidName = isKid1 
+                    ? `👧 Bé ${appSettings.kid1_name || 'Trâm Anh'} (${appSettings.kid1_class || '6A3'})` 
+                    : `👦 Bé ${appSettings.kid2_name || 'Thành Phát'} (${appSettings.kid2_class || '10A4'})`;
+                const kidColor = isKid1 ? '#15803d' : '#1d4ed8';
+
+                const list = scheduleData.filter(i => i.be_id === kId);
+                const counts = {};
+                let totalSlots = 0;
+
+                list.forEach(i => {
+                    const sub = (i.subject || '').trim();
+                    if (sub && sub !== '-') {
+                        counts[sub] = (counts[sub] || 0) + 1;
+                        totalSlots++;
+                    }
+                });
+
+                const sortedSubjects = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+                html += `
+                    <div class="summary-kid-title" style="color: ${kidColor};">
+                        <span>${kidName}</span>
+                        <span style="font-size:11px; color:#64748b; font-weight:600;">(Tổng cộng: <b>${totalSlots}</b> tiết/tuần)</span>
+                    </div>
+                `;
+
+                if (sortedSubjects.length === 0) {
+                    html += `<div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Chưa có dữ liệu thời khóa biểu.</div>`;
+                } else {
+                    html += `<div class="summary-grid" style="margin-bottom:16px;">`;
+                    sortedSubjects.forEach(s => {
+                        html += `
+                            <div class="summary-card">
+                                <span class="s-name">${s}</span>
+                                <span class="s-count">${counts[s]} tiết</span>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+            });
+
+            container.innerHTML = html;
+            document.getElementById('subjectSummaryModal').style.display = 'flex';
+        }
+
+        function closeSubjectSummaryModal(e) {
+            if (!e || e.target.id === 'subjectSummaryModal') {
+                document.getElementById('subjectSummaryModal').style.display = 'none';
+            }
+        }
+
+        function formatRemainingTime(minutesDiff) {
+            if (minutesDiff <= 0) return 'bây giờ';
+            const h = Math.floor(minutesDiff / 60);
+            const m = minutesDiff % 60;
+            if (h === 0) return `${m} phút`;
+            if (m === 0) return `${h} giờ`;
+            return `${h}h ${m}p`;
+        }
+
+        function getStatusForKid(kidId, currentMinutes) {
+            let kidName = (kidId === '1') ? (appSettings.kid1_name || 'Trâm Anh') : (appSettings.kid2_name || 'Thành Phát');
+            let kidColor = (kidId === '1') ? '#10b981' : '#3b82f6';
+            let list = scheduleData.filter(i => i.day === realTodayKey && i.be_id === kidId);
+
+            if (list.length === 0) {
+                return {
+                    status: 'NGHỈ NGƠI',
+                    statusBg: 'rgba(148, 163, 184, 0.2)',
+                    statusColor: '#94a3b8',
+                    subject: 'Không có lịch học hôm nay',
+                    child: kidName,
+                    childColor: kidColor,
+                    time: 'Thảnh thơi 🎉',
+                    timeHint: 'Không có tiết nào',
+                    icon: 'fa-mug-hot',
+                    iconColor: '#94a3b8',
+                    targetCardId: null,
+                    isClickable: false
+                };
+            }
+
+            let parsedList = list.map(item => {
+                let range = parseSlotMinutes(item);
+                let startMin = range ? range.start : getItemStartMinutes(item);
+                let endMin = range ? range.end : (startMin + 45);
+                return {
+                    item: item,
+                    start: startMin,
+                    end: endMin,
+                    timeRangeStr: range ? range.timeRangeStr : getEstimatedTimeRange(item.buoi, item.tiet)
+                };
+            });
+
+            parsedList.sort((a, b) => a.start - b.start);
+
+            // 1. ĐANG DIỄN RA
+            let ongoing = parsedList.find(p => currentMinutes >= p.start && currentMinutes <= p.end);
+            if (ongoing) {
+                let cleanTiet = ongoing.item.tiet.split('(')[0].trim();
+                let remaining = ongoing.end - currentMinutes;
+                return {
+                    status: 'ĐANG DIỄN RA',
+                    statusBg: 'rgba(234, 88, 12, 0.25)',
+                    statusColor: '#f97316',
+                    subject: ongoing.item.subject,
+                    child: kidName,
+                    childColor: kidColor,
+                    time: cleanTiet + ' (' + ongoing.timeRangeStr + ')',
+                    timeHint: `Còn khoảng ${remaining} phút là tan tiết`,
+                    icon: 'fa-book-open-reader',
+                    iconColor: '#ea580c',
+                    targetCardId: `slot-card-${ongoing.item.id}-${ongoing.item.be_id}-${ongoing.item.day}`,
+                    isClickable: true
+                };
+            }
+
+            // 2. TÌM MÔN HỌC KẾ TIẾP
+            let nextSlot = parsedList.find(p => p.start > currentMinutes);
+
+            if (nextSlot) {
+                let diffMinutes = nextSlot.start - currentMinutes;
+                let cleanTiet = nextSlot.item.tiet.split('(')[0].trim();
+                let cardId = `slot-card-${nextSlot.item.id}-${nextSlot.item.be_id}-${nextSlot.item.day}`;
+
+                if (diffMinutes <= 60) {
+                    return {
+                        status: 'SẮP DIỄN RA',
+                        statusBg: 'rgba(245, 158, 11, 0.25)',
+                        statusColor: '#fbbf24',
+                        subject: nextSlot.item.subject,
+                        child: kidName,
+                        childColor: kidColor,
+                        time: cleanTiet + ' (' + nextSlot.timeRangeStr + ')',
+                        timeHint: `Bắt đầu sau ${diffMinutes} phút`,
+                        icon: 'fa-hourglass-half',
+                        iconColor: '#f59e0b',
+                        targetCardId: cardId,
+                        isClickable: true
+                    };
+                }
+
+                let buoiText = (nextSlot.item.buoi || '').toUpperCase();
+                let buoiLabel = buoiText.includes('CHIỀU') ? 'Buổi Chiều' : (buoiText.includes('TỐI') ? 'Buổi Tối' : 'Tiếp theo');
+                let startTimeStr = nextSlot.timeRangeStr.split('-')[0].trim();
+
+                return {
+                    status: 'TIẾT TIẾP THEO',
+                    statusBg: 'rgba(59, 130, 246, 0.22)',
+                    statusColor: '#60a5fa',
+                    subject: nextSlot.item.subject,
+                    child: kidName,
+                    childColor: kidColor,
+                    time: `${buoiLabel} lúc ${startTimeStr}`,
+                    timeHint: `Còn khoảng ${formatRemainingTime(diffMinutes)} nữa`,
+                    icon: 'fa-calendar-clock',
+                    iconColor: '#38bdf8',
+                    targetCardId: null,
+                    isClickable: false
+                };
+            }
+
+            // 3. ĐÃ HOÀN THÀNH TẤT CẢ TIẾT TRONG NGÀY
+            return {
+                status: 'ĐÃ HOÀN THÀNH',
+                statusBg: 'rgba(16, 185, 129, 0.22)',
+                statusColor: '#34d399',
+                subject: 'Tất cả tiết học',
+                child: kidName,
+                childColor: kidColor,
+                time: 'Đã hết tiết học',
+                timeHint: 'Nghỉ ngơi & chuẩn bị bài mới',
+                icon: 'fa-circle-check',
+                iconColor: '#10b981',
+                targetCardId: null,
+                isClickable: false
+            };
+        }
+
+        function scrollToSubjectCard(cardId) {
+            if (!cardId) return;
+
+            if (currentDay !== realTodayKey) {
+                changeDay(realTodayKey);
+            }
+
+            setTimeout(() => {
+                const target = document.getElementById(cardId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    target.classList.add('card-highlight-flash');
+                    setTimeout(() => {
+                        target.classList.remove('card-highlight-flash');
+                    }, 1800);
+                }
+            }, 100);
+        }
+
+        function updateDynamicWidget() {
+            const widget = document.getElementById('upcomingWidget');
+            const container = document.getElementById('widgetItemsContainer');
+
+            if (currentDay !== realTodayKey) {
+                widget.style.display = 'none';
+                return;
+            }
+
+            widget.style.display = 'block';
+
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+            let targetKids = (currentProfile === 'all') ? ['1', '2'] : [currentProfile];
+            let html = '';
+            targetKids.forEach(kidId => {
+                let info = getStatusForKid(kidId, currentMinutes);
+                let clickAttr = info.isClickable && info.targetCardId ? `onclick="scrollToSubjectCard('${info.targetCardId}')"` : '';
+                let cursorClass = info.isClickable ? 'clickable' : '';
+                let navIcon = info.isClickable ? `<i class="fa-solid fa-arrow-turn-down" style="font-size:10px; margin-left:4px; opacity:0.8;"></i>` : '';
+
+                html += `
+                    <div class="widget-item ${cursorClass}" ${clickAttr} title="${info.isClickable ? 'Bấm để xem vị trí môn học bên dưới' : ''}">
+                        <div class="widget-left">
+                            <div class="widget-icon"><i class="fa-solid ${info.icon}" style="color: ${info.iconColor};"></i></div>
+                            <div style="min-width:0;">
+                                <span class="widget-status-badge" style="background: ${info.statusBg}; color: ${info.statusColor};">
+                                    ${info.status} ${navIcon}
+                                </span>
+                                <div class="widget-subject">${info.subject}</div>
+                            </div>
+                        </div>
+                        <div class="widget-right">
+                            <div class="widget-child" style="color: ${info.childColor};">${info.child}</div>
+                            <div class="widget-time">${info.time}</div>
+                            <div class="widget-time-hint">${info.timeHint}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (container) {
+                container.innerHTML = html;
+            }
+        }
+
+        // --- VUỐT MÀN HÌNH ĐỔI NGÀY TRÊN MOBILE ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', function(e) {
+            if (window.matchMedia("(orientation: landscape)").matches || window.innerWidth >= 1024 || e.target.closest('#dateStrip') || e.target.closest('.modal-content') || e.target.closest('#landscapeGridSection')) {
+                touchStartX = 0;
+                touchStartY = 0;
+                return;
+            }
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function(e) {
+            if (!touchStartX && !touchStartY) return;
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            handleGlobalGesture();
+            touchStartX = 0;
+            touchStartY = 0;
+        }, { passive: true });
+
+        function handleGlobalGesture() {
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {
+                const currentIndex = daysKeysList.indexOf(currentDay);
+                if (diffX < 0) {
+                    if (currentIndex < daysKeysList.length - 1) {
+                        changeDay(daysKeysList[currentIndex + 1]);
+                    }
+                } else {
+                    if (currentIndex > 0) {
+                        changeDay(daysKeysList[currentIndex - 1]);
+                    }
+                }
+            }
+        }
+
+        // --- BẬT / TẮT TOÀN MÀN HÌNH (FULLSCREEN API) ---
+        function toggleFullscreen() {
+            const icon = document.getElementById('fullScreenIcon');
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                const docEl = document.documentElement;
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen().catch(() => {});
+                } else if (docEl.webkitRequestFullscreen) {
+                    docEl.webkitRequestFullscreen();
+                }
+                if (icon) icon.className = 'fa-solid fa-compress';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+                if (icon) icon.className = 'fa-solid fa-expand';
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const icon = document.getElementById('fullScreenIcon');
+            if (icon) {
+                icon.className = document.fullscreenElement ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+            }
+        });
+
+        // --- CHUYỂN ĐỔI CHẾ ĐỘ XEM TRÊN PC (LƯỚI <-> DI ĐỘNG) ---
+        function applyPcViewMode(mode) {
+            const icon = document.getElementById('pcViewToggleIcon');
+            const text = document.getElementById('pcViewToggleText');
+            if (mode === 'agenda') {
+                document.body.classList.remove('pc-mode-grid');
+                document.body.classList.add('pc-mode-agenda');
+                if (icon) icon.className = 'fa-solid fa-table-cells';
+                if (text) text.innerText = 'Chế độ lưới trên PC';
+            } else {
+                document.body.classList.remove('pc-mode-agenda');
+                document.body.classList.add('pc-mode-grid');
+                if (icon) icon.className = 'fa-solid fa-mobile-screen';
+                if (text) text.innerText = 'Chế độ di động trên PC';
+            }
+            localStorage.setItem('tkb_pc_view_mode', mode);
+        }
+
+        function togglePcViewMode() {
+            const currentMode = document.body.classList.contains('pc-mode-agenda') ? 'agenda' : 'grid';
+            const targetMode = (currentMode === 'grid') ? 'agenda' : 'grid';
+            applyPcViewMode(targetMode);
+        }
+
+        function initPcViewMode() {
+            const savedMode = localStorage.getItem('tkb_pc_view_mode') || 'grid';
+            applyPcViewMode(savedMode);
+        }
+
+        window.addEventListener('resize', () => {
+            renderLandscapeGrid();
+        });
+        
+        window.addEventListener('orientationchange', () => {
+            setTimeout(renderLandscapeGrid, 200);
+        });
+
+        // TỰ ĐỘNG DỌN SẠCH CACHE CŨ
+        if ('caches' in window) {
+            caches.keys().then((names) => {
+                for (let name of names) {
+                    if (name !== 'tkb-live-v1' && name !== 'tkb-static-v1') {
+                        caches.delete(name);
+                    }
+                }
+            });
+        }
+
+        // ĐĂNG KÝ SERVICE WORKER CHO OFFLINE
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then((reg) => {
+                    reg.update();
+                }).catch(() => {});
+            });
+        }
+
+        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ API
+        async function syncDataFromServer() {
+            if (!navigator.onLine) {
+                return false;
+            }
+            try {
+                const res = await fetch('api.php?t=' + Date.now(), { 
+                    cache: 'no-store',
+                    headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.schedule_data) {
+                        scheduleData = data.schedule_data;
+                        rawSchedules = data.raw_schedules;
+                        teachersMap = data.teachers_map;
+                        appSettings = Object.assign({}, appSettings, data.settings);
+
+                        if (data.todo_tags !== undefined && data.todo_tags !== null) {
+                            let serverTags = data.todo_tags;
+                            if (Array.isArray(serverTags) || typeof serverTags !== 'object') {
+                                serverTags = {};
+                            }
+                            localStorage.setItem('tkb_todo_tags', JSON.stringify(serverTags));
+                        }
+
+                        if (data.exam_schedules !== undefined && data.exam_schedules !== null) {
+                            localStorage.setItem('tkb_exam_schedules', JSON.stringify(data.exam_schedules));
+                        }
+
+                        saveToOfflineStorage();
+                        updateHeaderNames();
+
+                        refreshRealTimeDates();
+                        renderAgenda();
+                        updateDynamicWidget();
+                        renderLandscapeGrid();
+                        checkRainAlert();
+                        updateExamBadgeCount();
+                        return true;
+                    }
+                }
+            } catch (err) {
+                console.log('Đang chạy ở chế độ offline hoặc mạng chậm.');
+            }
+            return false;
+        }
+
+        // NÚT LÀM MỚI BẰNG TAY
+        async function manualSync() {
+            const btn = document.getElementById('refreshBtn');
+            const icon = btn.querySelector('i');
+            icon.classList.add('fa-spin');
+            
+            refreshRealTimeDates();
+            if (navigator.onLine) {
+                await syncDataFromServer();
+            } else {
+                showNetworkToast('offline', 'Bạn đang offline, không thể cập nhật trực tuyến');
+            }
+            
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+            }, 600);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                refreshRealTimeDates();
+                if (navigator.onLine) {
+                    syncDataFromServer();
+                }
+            }
+        });
+
+        // Khởi chạy ứng dụng ban đầu
+        initPcViewMode();
+        refreshRealTimeDates();
+        changeDay(realTodayKey);
+        renderLandscapeGrid();
+        checkRainAlert();
+        updateExamBadgeCount();
+        if (navigator.onLine) {
+            syncDataFromServer();
+        }
+
+        // Quét thời gian thực mỗi 15 giây & cập nhật ngày nếu qua nửa đêm
+        setInterval(() => {
+            refreshRealTimeDates();
+            renderAgenda();
+            updateDynamicWidget();
+            if (navigator.onLine) {
+                syncDataFromServer();
+            }
+        }, 15000);
+
+        // Định kỳ 15 phút cập nhật lại dự báo thời tiết Ninh Hòa
+        setInterval(() => {
+            checkRainAlert();
+        }, 15 * 60 * 1000);
+    </script>
+</body>
+</html>
