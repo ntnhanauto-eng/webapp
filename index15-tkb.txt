@@ -150,7 +150,7 @@ foreach ($raw_schedules as $row) {
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background: var(--bg); 
             color: var(--text-title); 
-            padding-top: 0;
+            padding-top: 0; 
             padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); 
             padding-left: env(safe-area-inset-left, 0px);
             padding-right: env(safe-area-inset-right, 0px);
@@ -216,7 +216,7 @@ foreach ($raw_schedules as $row) {
         }
         .icon-btn:active { transform: scale(0.92); }
 
-        /* Badge đếm số môn thi */
+        /* Badge đếm số môn thi trên nút Header */
         .exam-badge-count {
             position: absolute;
             top: -3px;
@@ -283,7 +283,7 @@ foreach ($raw_schedules as $row) {
             text-align: center;
         }
 
-        /* Tùy chọn chuyển đổi PC chỉ hiện trên màn hình >= 1024px */
+        /* Nút chuyển đổi View Mode chỉ hiển thị trên PC (Màn hình lớn >= 1024px) */
         .pc-view-toggle-item {
             display: none !important;
         }
@@ -326,6 +326,7 @@ foreach ($raw_schedules as $row) {
         .today-quick-btn { font-size: 11px; font-weight: 700; color: #475569; background: #e2e8f0; padding: 4px 9px; border-radius: 12px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
         .today-quick-btn:active { transform: scale(0.95); }
 
+        /* Nút trợ lý giọng nói */
         .voice-read-btn {
             font-size: 11px;
             font-weight: 700;
@@ -366,16 +367,18 @@ foreach ($raw_schedules as $row) {
         .date-item.active { border-color: var(--active-theme-color) !important; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); transform: translateY(-2px); background: #ffffff !important; }
         .date-item.active:not(.is-weekend) .d-day, .date-item.active:not(.is-weekend) .d-num { color: var(--active-theme-color) !important; }
 
+        /* UPCOMING WIDGET */
         .upcoming-widget {
             margin: 12px 16px 4px; 
             background: #0f172a; 
-            color: white;
+            color: white; 
             padding: 12px; 
             border-radius: 16px; 
             box-shadow: var(--shadow-md);
             border: 1px solid #1e293b;
         }
 
+        /* KHUNG CẢNH BÁO THỜI TIẾT */
         .weather-alert-row {
             display: flex;
             align-items: center;
@@ -498,6 +501,7 @@ foreach ($raw_schedules as $row) {
             background: #f1f5f9 !important;
         }
 
+        /* Vạch tiến độ thời gian thực */
         .live-progress-container {
             margin-top: 10px;
             margin-bottom: 4px;
@@ -596,8 +600,10 @@ foreach ($raw_schedules as $row) {
             display: inline-flex; 
             align-items: center; 
             gap: 6px; 
+            cursor: pointer; 
             text-decoration: none; 
         }
+        .subject-title-link:hover { color: var(--primary); }
 
         .teacher-tag-btn {
             font-size: 11px; 
@@ -620,6 +626,49 @@ foreach ($raw_schedules as $row) {
         }
         .teacher-tag-btn:active {
             transform: scale(0.95);
+        }
+
+        /* HUY HIỆU TRÊN GIAO DIỆN MOBILE CUỘN DỌC (AGENDA) */
+        .custom-todo-badge {
+            margin-top: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 11.5px;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .todo-type-btvn { background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; }
+        .todo-type-kt15 { background: #fef3c7; color: #b45309; border: 1.5px solid #fde68a; }
+        .todo-type-kt1t { background: #ffedd5; color: #c2410c; border: 1.5px solid #fed7aa; }
+        .todo-type-gk   { background: #fae8ff; color: #86198f; border: 1.5px solid #f5d0fe; }
+        .todo-type-hk   { background: #fee2e2; color: #b91c1c; border: 1.5px solid #fecaca; }
+        .todo-type-note { background: #f1f5f9; color: #334155; border: 1.5px solid #cbd5e1; }
+
+        .add-badge-btn {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748b;
+            background: #ffffff;
+            border: 1px dashed #cbd5e1;
+            padding: 3px 8px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            margin-top: 4px;
+            transition: all 0.15s;
+        }
+        .add-badge-btn:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background: #eef2ff;
         }
 
         .parent-note {
@@ -645,7 +694,7 @@ foreach ($raw_schedules as $row) {
             flex-shrink: 0;
         }
 
-        /* GHI CHÚ TRONG BẢNG LƯỚI THỜI KHÓA BIỂU */
+        /* GHI CHÚ PHỤ TRONG Ô THỜI KHÓA BIỂU */
         .grid-sub-note {
             font-size: 8.5px;
             font-weight: 700;
@@ -653,12 +702,12 @@ foreach ($raw_schedules as $row) {
             background: #fff7ed;
             border: 1px solid #fed7aa;
             border-left: 2px solid #ea580c;
-            border-radius: 4px;
-            padding: 1px 3px;
-            margin-top: 2px;
+            border-radius: 3px;
+            padding: 0.5px 3px;
+            margin-top: 1px;
             width: 100%;
             text-align: center;
-            line-height: 1.15;
+            line-height: 1.05;
             word-break: break-word;
         }
 
@@ -668,20 +717,11 @@ foreach ($raw_schedules as $row) {
         .empty-state { text-align: center; padding: 35px 10px; background: white; border-radius: 16px; border: 1px dashed #cbd5e1; margin-left: -20px; }
 
         /* BẢNG LƯỚI THỜI GIAN THỰC (DESKTOP & MOBILE XOAY NGANG) */
-        #landscapeGridSection { 
-            display: none; 
-            padding: 10px 14px; 
-            max-width: 1280px; 
-            margin: 0 auto; 
-        }
+        #landscapeGridSection { display: none; padding: 10px 14px; max-width: 1280px; margin: 0 auto; }
         
         .landscape-table-card {
-            background: white; 
-            border-radius: 16px; 
-            border: 1px solid #cbd5e1; 
-            padding: 0;
-            box-shadow: var(--shadow-sm); 
-            margin-bottom: 20px;
+            background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 0;
+            box-shadow: var(--shadow-sm); margin-bottom: 20px;
         }
         
         .landscape-table-wrapper {
@@ -691,46 +731,24 @@ foreach ($raw_schedules as $row) {
         }
 
         .landscape-card-header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: 8px 14px; 
-            background: #ffffff; 
-            border-bottom: 1px solid #e2e8f0;
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 8px 12px; background: #ffffff; border-bottom: 1px solid #e2e8f0;
         }
         .landscape-title { font-size: 13.5px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
         .print-tkb-btn {
-            background: #ffffff; 
-            color: #1e293b; 
-            border: 1.5px solid #cbd5e1; 
-            padding: 4px 10px;
-            border-radius: 9px; 
-            font-size: 10.5px; 
-            font-weight: 700; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 5px; 
-            cursor: pointer; 
-            transition: all 0.2s ease;
+            background: #ffffff; color: #1e293b; border: 1.5px solid #cbd5e1; padding: 4px 10px;
+            border-radius: 10px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;
         }
         .print-tkb-btn:hover { background: #f1f5f9; border-color: #94a3b8; color: var(--primary); }
         
-        .landscape-table { 
-            width: 100%; 
-            min-width: 1050px; 
-            border-collapse: separate; 
-            border-spacing: 0; 
-            text-align: center; 
-            font-size: 12px; 
-            table-layout: fixed; 
-        }
+        .landscape-table { width: 100%; min-width: 1050px; border-collapse: separate; border-spacing: 0; text-align: center; font-size: 12px; table-layout: fixed; }
         .landscape-table th, .landscape-table td { border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; padding: 0; vertical-align: top; position: static !important; }
         .landscape-table th:first-child, .landscape-table td:first-child { border-left: 1px solid #cbd5e1; }
         .landscape-table tr:first-child th { border-top: 1px solid #cbd5e1; }
         
-        .landscape-table th { background: #f1f5f9; color: #1e293b; font-weight: 800; font-size: 11.5px; padding: 6px 3px; }
-        .landscape-table .col-buoi { width: 60px; min-width: 60px; max-width: 60px; font-weight: 800; background: #f8fafc; color: #334155; vertical-align: middle; text-align: center; font-size: 11px; }
-        .landscape-table .col-tiet { width: 95px; min-width: 95px; max-width: 95px; font-weight: 700; background: #ffffff; color: #475569; font-size: 10.5px; line-height: 1.2; }
+        .landscape-table th { background: #f1f5f9; color: #1e293b; font-weight: 800; font-size: 11.5px; padding: 5px 3px; }
+        .landscape-table .col-buoi { width: 60px; min-width: 60px; max-width: 60px; font-weight: 800; background: #f8fafc; color: #334155; vertical-align: middle; text-align: center; }
+        .landscape-table .col-tiet { width: 95px; min-width: 95px; max-width: 95px; font-weight: 700; background: #ffffff; color: #475569; font-size: 10.5px; line-height: 1.15; }
         .landscape-table .col-day-header { width: 135px; min-width: 135px; }
 
         .landscape-time-col-cell {
@@ -759,16 +777,16 @@ foreach ($raw_schedules as $row) {
             pointer-events: none;
         }
 
-        /* Ô TIẾT HỌC THỜI GIAN THỰC */
+        /* Ô TIẾT HỌC TRONG BẢNG LƯỚI: THU GỌN KHOẢNG CÁCH VIỀN TRÊN DƯỚI */
         .grid-sub-box {
             position: absolute;
-            left: 4px;
-            right: 4px;
+            left: 3px;
+            right: 3px;
             box-sizing: border-box;
             background: var(--card-gray-bg);
             border: 1.5px solid var(--card-gray-border);
-            border-radius: 7px;
-            padding: 2px 4px;
+            border-radius: 6px;
+            padding: 1.5px 3px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -778,7 +796,7 @@ foreach ($raw_schedules as $row) {
             transition: all 0.15s ease;
             z-index: 5;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
         .grid-sub-box.is-current-slot { border: 2px solid #ea580c !important; background: #ffedd5 !important; box-shadow: 0 0 8px rgba(234, 88, 12, 0.4); z-index: 10; }
         .grid-sub-box.is-past-slot {
@@ -793,10 +811,12 @@ foreach ($raw_schedules as $row) {
             font-weight: 800; 
             color: #0f172a; 
             font-size: 11px; 
-            line-height: 1.15; 
+            line-height: 1.1; 
             text-align: center; 
             white-space: normal; 
             word-break: break-word; 
+            margin: 0;
+            padding: 0;
         }
         .grid-sub-teacher { 
             font-size: 9px; 
@@ -808,7 +828,8 @@ foreach ($raw_schedules as $row) {
             overflow: hidden; 
             text-overflow: ellipsis; 
             max-width: 100%; 
-            line-height: 1.1; 
+            line-height: 1.1;
+            padding: 0;
         }
 
         /* NÚT FULLSCREEN KHI XOAY NGANG TRÊN MOBILE */
@@ -836,7 +857,7 @@ foreach ($raw_schedules as $row) {
             transform: scale(0.92);
         }
 
-        /* CHẾ ĐỘ XOAY NGANG TRÊN MOBILE (< 1024px) */
+        /* CHẾ ĐỘ XOAY NGANG TRÊN MOBILE */
         @media screen and (orientation: landscape) and (max-width: 1023px) {
             .date-strip-box, .upcoming-widget, .timeline-section { display: none !important; }
             #landscapeGridSection { display: block !important; }
@@ -862,7 +883,7 @@ foreach ($raw_schedules as $row) {
             }
         }
 
-        /* TRÊN PC (DESKTOP/LAPTOP >= 1024px) - MẶC ĐỊNH LÀ BẢNG LƯỚI */
+        /* TRÊN PC (DESKTOP/LAPTOP) */
         @media screen and (min-width: 1024px) {
             body.pc-mode-grid .date-strip-box,
             body.pc-mode-grid .upcoming-widget,
@@ -966,7 +987,7 @@ foreach ($raw_schedules as $row) {
             font-weight: 700;
         }
 
-        /* IN ẤN KHỔ A4 NGANG */
+        /* IN ẤN KHỔ A4 NGANG (VỪA VẶN 1 TRANG GIẤY DUY NHẤT) */
         @page { 
             size: A4 landscape; 
             margin: 4mm 5mm; 
@@ -974,7 +995,7 @@ foreach ($raw_schedules as $row) {
         @media print {
             html, body {
                 width: 100% !important;
-                height: auto !important;
+                height: 100% !important;
                 background: white !important;
                 color: black !important;
                 padding: 0 !important;
@@ -998,7 +1019,7 @@ foreach ($raw_schedules as $row) {
             }
 
             .landscape-table-card { 
-                border: 1px solid #64748b !important; 
+                border: 1px solid #334155 !important; 
                 box-shadow: none !important; 
                 margin: 0 0 10px 0 !important; 
                 padding: 2px !important;
@@ -1012,7 +1033,7 @@ foreach ($raw_schedules as $row) {
             body.printing-single .landscape-table-card.target-print { 
                 display: block !important; 
                 page-break-after: auto !important; 
-                border: 1px solid #64748b !important;
+                border: 1px solid #334155 !important;
             }
 
             .landscape-table-wrapper {
@@ -1029,7 +1050,7 @@ foreach ($raw_schedules as $row) {
 
             .landscape-table th, .landscape-table td { 
                 padding: 0 !important; 
-                border: 1px solid #475569 !important; 
+                border: 1px solid #334155 !important; 
                 position: static !important; 
             }
 
@@ -1038,7 +1059,7 @@ foreach ($raw_schedules as $row) {
                 font-size: 10px !important;
             }
 
-            .col-buoi { width: 45px !important; min-width: 45px !important; }
+            .col-buoi { width: 45px !important; min-width: 45px !important; font-size: 10px !important; }
             .col-tiet { width: 75px !important; min-width: 75px !important; }
             .col-day-header { width: auto !important; min-width: 0 !important; }
 
@@ -1048,19 +1069,30 @@ foreach ($raw_schedules as $row) {
             }
 
             .grid-sub-box { 
-                border: 1px solid #475569 !important; 
+                border: 1px solid #334155 !important; 
                 background: #f8fafc !important; 
-                box-shadow: none !important;
+                box-shadow: none !important; 
                 padding: 1px 2px !important;
+                left: 2px !important;
+                right: 2px !important;
             }
 
             .grid-sub-title {
-                font-size: 9.5px !important;
-                line-height: 1.1 !important;
+                font-size: 9px !important;
+                line-height: 1.05 !important;
             }
 
             .grid-sub-teacher {
-                font-size: 8px !important;
+                font-size: 7.5px !important;
+                line-height: 1.05 !important;
+                margin-top: 0.5px !important;
+            }
+
+            .grid-sub-note {
+                font-size: 7px !important;
+                padding: 0 1px !important;
+                margin-top: 0.5px !important;
+                line-height: 1 !important;
             }
         }
 
@@ -1107,6 +1139,18 @@ foreach ($raw_schedules as $row) {
             cursor: pointer;
             width: 100%;
             transition: all 0.2s;
+        }
+        .btn-delete-tag {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fca5a5;
+            padding: 9px 16px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
         }
 
         .pass-hint-box {
@@ -1211,7 +1255,7 @@ foreach ($raw_schedules as $row) {
                     <i class="fa-solid fa-magnifying-glass" style="color: #ea580c;"></i>
                     <span>Tra cứu môn học</span>
                 </button>
-                <!-- CHỈ HIỂN THỊ TRÊN PC / MÀN HÌNH LỚN >= 1024px -->
+                <!-- CHỈ HIỂN THỊ TRÊN PC / MÀN HÌNH LỚN -->
                 <button type="button" class="dropdown-item-btn pc-view-toggle-item" id="pcViewToggleDropdownBtn" onclick="togglePcViewMode(); closeMoreMenu();">
                     <i class="fa-solid fa-mobile-screen" id="pcViewToggleIcon" style="color: #6366f1;"></i>
                     <span id="pcViewToggleText">Chế độ di động trên PC</span>
@@ -1286,12 +1330,12 @@ foreach ($raw_schedules as $row) {
         <div id="widgetItemsContainer"></div>
     </div>
 
-    <!-- 5. DANH SÁCH DÒNG THỜI GIAN DỌC (AGENDA) -->
+    <!-- 5. DANH SÁCH DÒNG THỜI GIAN DỌC (AGENDA) - CÓ HUY HIỆU BÀI TẬP / KIỂM TRA -->
     <main class="timeline-section" id="timelineMain">
         <div class="timeline-rail" id="timelineStream"></div>
     </main>
 
-    <!-- 6. BẢNG THỜI KHÓA BIỂU DẠNG LƯỚI (DESKTOP / LANDSCAPE) -->
+    <!-- 6. BẢNG THỜI KHÓA BIỂU DẠNG LƯỚI (DESKTOP / LANDSCAPE) - CHỈ TÊN MÔN, GV, GHI CHÚ BA MẸ -->
     <section id="landscapeGridSection">
         <div id="landscapeGridContainer"></div>
     </section>
@@ -1368,7 +1412,66 @@ foreach ($raw_schedules as $row) {
         </div>
     </div>
 
-    <!-- 10. MODAL LỊCH THI TẬP TRUNG CHIA 2 TAB CHO 2 BÉ (GIỮA KỲ & CUỐI KỲ) -->
+    <!-- 10. MODAL GẮN HUY HIỆU BÀI TẬP / LỊCH KIỂM TRA (DÀNH CHO MOBILE AGENDA) -->
+    <div id="todoTagModal" class="modal-overlay" onclick="closeTodoTagModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-tag" style="color: #f59e0b;"></i> Nhãn Bài Tập & Kiểm Tra</h3>
+                <button type="button" class="modal-close-btn" onclick="closeTodoTagModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="todoModalSubjectTitle" style="font-size:14px; font-weight:800; color:#0f172a; margin-bottom:4px;"></div>
+                <div id="todoModalKidOwner" style="font-size:12px; font-weight:700; color:#ea580c; margin-bottom:12px;"></div>
+                
+                <input type="hidden" id="todoSlotKey">
+                <input type="hidden" id="todoKidId">
+
+                <label class="form-label">Loại huy hiệu</label>
+                <select id="todoTypeSelect" class="form-select">
+                    <option value="btvn">📝 Bài tập về nhà</option>
+                    <option value="kt15">⏱️ Kiểm tra 15 phút</option>
+                    <option value="kt1t">📑 Kiểm tra 1 tiết</option>
+                    <option value="gk">🏆 Kiểm tra Giữa kỳ</option>
+                    <option value="hk">🎯 Thi Học kỳ</option>
+                    <option value="note">📌 Lưu ý / Dụng cụ học tập</option>
+                </select>
+
+                <label class="form-label">Nội dung ghi chú</label>
+                <input type="text" id="todoContentInput" class="form-input" placeholder="Ví dụ: Làm bài 1,2 trang 45; Mang compa..." maxlength="100">
+
+                <label class="form-label">Thời gian tự hủy</label>
+                <select id="todoExpireSelect" class="form-select">
+                    <option value="today_end">Hết ngày hôm nay (23:59)</option>
+                    <option value="24h">Sau 24 giờ</option>
+                    <option value="3d">Sau 3 ngày</option>
+                    <option value="weekend">Hết tuần này (Chủ nhật)</option>
+                </select>
+
+                <label class="form-label">Mật khẩu xác nhận</label>
+                <input type="password" id="todoPasswordInput" class="form-input" placeholder="Nhập mật khẩu của bé hoặc Admin" autocomplete="new-password">
+                <div class="pass-hint-box">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span id="todoPassHintText">Bắt buộc nhập mật khẩu của bé này hoặc mật khẩu Admin để thêm, sửa hoặc xóa.</span>
+                </div>
+
+                <button type="button" class="btn-submit-tag" onclick="saveTodoTag()"><i class="fa-solid fa-check"></i> Lưu huy hiệu</button>
+                <button type="button" id="btnDeleteTag" class="btn-delete-tag" style="display:none;" onclick="removeTodoTag()"><i class="fa-solid fa-trash-can"></i> Xóa huy hiệu này</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 11. MODAL THỐNG KÊ TẢI LƯỢNG MÔN HỌC TRONG TUẦN -->
+    <div id="subjectSummaryModal" class="modal-overlay" onclick="closeSubjectSummaryModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-chart-pie" style="color: #8b5cf6;"></i> Thống Kê Tiết Học Trong Tuần</h3>
+                <button type="button" class="modal-close-btn" onclick="closeSubjectSummaryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="subjectSummaryBody"></div>
+        </div>
+    </div>
+
+    <!-- 12. MODAL LỊCH THI TẬP TRUNG CHIA 2 TAB CHO 2 BÉ (GIỮA KỲ & CUỐI KỲ) -->
     <div id="examScheduleModal" class="modal-overlay" onclick="closeExamScheduleModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -2065,24 +2168,6 @@ foreach ($raw_schedules as $row) {
             document.getElementById('examFormBox').style.display = 'none';
         }
 
-        function verifyKidOrAdminPassword(kidId, enteredPass) {
-            if (!enteredPass) return false;
-            
-            const adminPass = String(appSettings.admin_pass || 'admin123').trim();
-            if (adminPass !== '' && enteredPass === adminPass) {
-                return true;
-            }
-
-            let targetPass = '';
-            if (String(kidId) === '2') {
-                targetPass = String(appSettings.kid2_pass || '123456').trim();
-            } else {
-                targetPass = String(appSettings.kid1_pass || '123456').trim();
-            }
-
-            return enteredPass === targetPass;
-        }
-
         function saveExamSchedule() {
             const editId = document.getElementById('examEditId').value;
             const kidId = document.getElementById('examFormKidTarget').value || currentExamTab;
@@ -2715,12 +2800,769 @@ foreach ($raw_schedules as $row) {
             container.innerHTML = html;
         }
 
-        // Khởi tạo hiển thị
+        // --- 8. BẢNG THỜI KHÓA BIỂU DẠNG LƯỚI (CHIỀU CAO TỐI ƯU HÓA ĐỂ IN VỪA 1 TRANG A4) ---
+        function renderLandscapeGrid() {
+            const container = document.getElementById('landscapeGridContainer');
+            if (!container) return;
+
+            let kids = (currentProfile === 'all') ? ['1', '2'] : [currentProfile];
+            let html = '';
+
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+            kids.forEach(kId => {
+                const isKid1 = (kId === '1');
+                const kidName = isKid1 
+                    ? `👧 Bé ${appSettings.kid1_name || 'Trâm Anh'} - Lớp ${appSettings.kid1_class || '6A3'}` 
+                    : `👦 Bé ${appSettings.kid2_name || 'Thành Phát'} - Lớp ${appSettings.kid2_class || '10A4'}`;
+                const kidColor = isKid1 ? '#10b981' : '#3b82f6';
+                const kidRows = rawSchedules.filter(r => String(r.be_name) === String(kId));
+
+                if (kidRows.length === 0) return;
+
+                const buoiOrder = ['SÁNG', 'CHIỀU', 'TỐI'];
+                let grouped = {};
+                buoiOrder.forEach(b => { grouped[b] = []; });
+                kidRows.forEach(r => {
+                    let b = (r.buoi || '').toUpperCase();
+                    if (!grouped[b]) grouped[b] = [];
+                    grouped[b].push(r);
+                });
+
+                html += `
+                    <div class="landscape-table-card" id="printCard_${kId}">
+                        <div class="landscape-card-header">
+                            <div class="landscape-title" style="color: ${kidColor};">
+                                <i class="fa-solid fa-table-cells"></i> ${kidName}
+                            </div>
+                            <button type="button" class="print-tkb-btn" onclick="printSingleSchedule('${kId}')">
+                                <i class="fa-solid fa-print"></i> In thời khóa biểu
+                            </button>
+                        </div>
+                        <div class="landscape-table-wrapper">
+                            <table class="landscape-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-buoi">BUỔI</th>
+                                        <th class="col-tiet">TIẾT / GIỜ</th>
+                                        ${daysKeysList.map(dk => `<th class="col-day-header">${(weekDates[dk] && weekDates[dk].full_name) || dk}<br><span style="font-size:9.5px; font-weight:600; color:#64748b;">(${ (weekDates[dk] && weekDates[dk].full_date) || '' })</span></th>`).join('')}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                buoiOrder.forEach(buoiKey => {
+                    let rows = grouped[buoiKey] || [];
+                    if (rows.length === 0) return;
+
+                    let standardSlots = [];
+                    rows.forEach(r => {
+                        let cleanTiet = (r.tiet || '').split('(')[0].trim();
+                        let slotRange = parseSlotMinutes(r);
+                        let rawTime = slotRange ? slotRange.timeRangeStr : getEstimatedTimeRange(r.buoi, r.tiet);
+                        let parts = rawTime.split(/\s*[-~]\s*/);
+                        let formattedTime = (parts.length === 2) ? `${parts[0]}&nbsp;&ndash;&nbsp;${parts[1]}` : rawTime;
+
+                        let startMin = slotRange ? slotRange.start : getItemStartMinutes(r);
+                        let endMin = slotRange ? slotRange.end : (startMin + 45);
+                        if (endMin <= startMin) endMin = startMin + 45;
+
+                        standardSlots.push({
+                            cleanTiet,
+                            formattedTime,
+                            startMin,
+                            endMin
+                        });
+                    });
+
+                    // Chiều cao tiêu chuẩn mỗi dòng tiết giảm xuống 50px để bảng TKB vừa khít 1 trang A4 ngang
+                    const standardSlotHeight = 50;
+                    const totalTrackHeight = standardSlots.length * standardSlotHeight;
+
+                    html += `<tr>`;
+                    // 1. Cột BUỔI
+                    html += `<td class="col-buoi" style="height:${totalTrackHeight}px;">${buoiKey}</td>`;
+
+                    // 2. Cột TIẾT
+                    html += `<td class="col-tiet" style="padding:0; height:${totalTrackHeight}px;">`;
+                    standardSlots.forEach((slot, idx) => {
+                        let isLast = idx === standardSlots.length - 1;
+                        html += `
+                            <div class="landscape-time-col-cell" style="height:${standardSlotHeight}px; ${isLast ? 'border-bottom:none;' : ''}">
+                                <b>${slot.cleanTiet}</b>
+                                <div style="font-size:9px; color:#64748b; margin-top:1px; white-space:nowrap;">${slot.formattedTime}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</td>`;
+
+                    // 3. Các cột THỨ (T2 -> CN)
+                    daysKeysList.forEach(dk => {
+                        let dayItems = [];
+                        rows.forEach((r, slotIndex) => {
+                            let rawCell = trimString(r[dk] || '');
+                            if (rawCell && rawCell !== '-') {
+                                let lines = rawCell.split("\n").map(l => l.trim()).filter(l => l !== '');
+                                let subject = lines[0] || '';
+                                let note = lines.slice(1).join(' ').trim();
+                                let teacherId = r['t_' + dk] || null;
+                                let teacherObj = (teacherId && teachersMap[teacherId]) ? teachersMap[teacherId] : null;
+
+                                let currentCellItem = {
+                                    buoi: r.buoi,
+                                    tiet: r.tiet,
+                                    subject: subject,
+                                    note: note
+                                };
+                                let cellSlotRange = parseSlotMinutes(currentCellItem);
+                                let start = cellSlotRange ? cellSlotRange.start : getItemStartMinutes(r);
+                                let end = cellSlotRange ? cellSlotRange.end : (start + 45);
+                                if (end <= start) end = start + 45;
+
+                                dayItems.push({
+                                    id: r.id,
+                                    be_id: kId,
+                                    day: dk,
+                                    subject: subject,
+                                    note: note,
+                                    teacher: teacherObj,
+                                    start: start,
+                                    end: end,
+                                    slotIndex: slotIndex,
+                                    slotKey: `${r.id}_${kId}_${dk}`
+                                });
+                            }
+                        });
+
+                        html += `<td style="height:${totalTrackHeight}px; position:relative; padding:0;">`;
+                        html += `<div class="landscape-day-track" style="height:${totalTrackHeight}px;">`;
+
+                        // Đường kẻ ngang ngăn cách từng tiết chuẩn
+                        for (let s = 1; s < standardSlots.length; s++) {
+                            html += `<div class="landscape-slot-grid-line" style="top:${s * standardSlotHeight}px;"></div>`;
+                        }
+
+                        // Hàm nội suy thời gian sang toạ độ Y chính xác theo từng hàng tiết
+                        function getPixelForMinute(targetMin) {
+                            if (standardSlots.length === 0) return 0;
+                            if (targetMin <= standardSlots[0].startMin) return 0;
+                            const lastIndex = standardSlots.length - 1;
+                            if (targetMin >= standardSlots[lastIndex].endMin) return totalTrackHeight;
+
+                            for (let i = 0; i < standardSlots.length; i++) {
+                                const sSlot = standardSlots[i];
+                                if (targetMin >= sSlot.startMin && targetMin <= sSlot.endMin) {
+                                    const progress = (targetMin - sSlot.startMin) / (sSlot.endMin - sSlot.startMin || 45);
+                                    return i * standardSlotHeight + progress * standardSlotHeight;
+                                }
+                                if (i < lastIndex && targetMin > sSlot.endMin && targetMin < standardSlots[i + 1].startMin) {
+                                    return (i + 1) * standardSlotHeight;
+                                }
+                            }
+                            return totalTrackHeight;
+                        }
+
+                        // Hiển thị các môn học: Giảm khoảng cách viền trên dưới tối đa
+                        dayItems.forEach(item => {
+                            const curStandard = standardSlots[item.slotIndex];
+                            let topPx, heightPx;
+
+                            const isAlignedWithStandard = curStandard && (Math.abs(item.start - curStandard.startMin) <= 3) && (Math.abs(item.end - curStandard.endMin) <= 3);
+
+                            if (isAlignedWithStandard) {
+                                topPx = item.slotIndex * standardSlotHeight + 2;
+                                heightPx = standardSlotHeight - 4;
+                            } else {
+                                const rawTop = getPixelForMinute(item.start);
+                                const rawBottom = getPixelForMinute(item.end);
+
+                                topPx = rawTop + 2;
+                                heightPx = (rawBottom - rawTop) - 4;
+
+                                heightPx = Math.max(heightPx, 32);
+                                if ((topPx + heightPx) > totalTrackHeight - 2) {
+                                    heightPx = totalTrackHeight - topPx - 2;
+                                }
+                            }
+
+                            let isCurrentSlot = false;
+                            let isPastSlot = false;
+                            if (dk === realTodayKey) {
+                                if (currentMinutes >= item.start && currentMinutes <= item.end) {
+                                    isCurrentSlot = true;
+                                } else if (currentMinutes > item.end) {
+                                    isPastSlot = true;
+                                }
+                            }
+
+                            let safeSubEnc = encodeURIComponent(item.subject).replace(/'/g, "%27");
+                            let teacherObjStr = item.teacher ? encodeURIComponent(JSON.stringify(item.teacher)).replace(/'/g, "%27") : '';
+
+                            html += `
+                                <div class="grid-sub-box ${isCurrentSlot ? 'is-current-slot' : ''} ${isPastSlot ? 'is-past-slot' : ''}" 
+                                     style="top:${topPx}px; height:${heightPx}px;">
+                                    <div class="grid-sub-title">${item.subject}</div>
+                                    ${item.teacher ? `
+                                        <div class="grid-sub-teacher" onclick="event.stopPropagation(); showTeacherDetails('${safeSubEnc}', '${teacherObjStr}')">
+                                            <i class="fa-solid fa-user-tie" style="font-size:8px;"></i> ${item.teacher.teacher_name}
+                                        </div>
+                                    ` : ''}
+                                    ${item.note ? `<div class="grid-sub-note"><i class="fa-solid fa-comment-dots" style="margin-right:2px; font-size:7.5px;"></i>${item.note}</div>` : ''}
+                                </div>
+                            `;
+                        });
+
+                        html += `</div></td>`;
+                    });
+
+                    html += `</tr>`;
+                });
+
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function printSingleSchedule(kidId) {
+            document.querySelectorAll('.landscape-table-card').forEach(c => c.classList.remove('target-print'));
+            const target = document.getElementById('printCard_' + kidId);
+            if (target) {
+                target.classList.add('target-print');
+                document.body.classList.add('printing-single');
+                window.print();
+                document.body.classList.remove('printing-single');
+                target.classList.remove('target-print');
+            }
+        }
+
+        function trimString(str) {
+            return (str || '').replace(/\r/g, '').trim();
+        }
+
+        function showTeacherDetails(subEncoded, teacherEncoded) {
+            let subject = '';
+            try {
+                subject = decodeURIComponent(subEncoded || '');
+            } catch (e) {
+                subject = subEncoded || '';
+            }
+            const container = document.getElementById('singleTeacherBody');
+
+            if (!teacherEncoded) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding: 20px 10px;">
+                        <i class="fa-solid fa-circle-info" style="font-size: 32px; color: #94a3b8; margin-bottom: 8px;"></i>
+                        <h4 style="font-size: 15px; font-weight: 800; color:#1e293b;">Môn: ${subject}</h4>
+                        <p style="font-size: 12px; color: #64748b; margin-top: 4px;">Môn này chưa được gán thông tin giáo viên trong trang quản trị.</p>
+                    </div>
+                `;
+            } else {
+                const tc = JSON.parse(decodeURIComponent(teacherEncoded));
+                const cleanPhone = (tc.phone || '').replace(/[^0-9]/g, '');
+
+                container.innerHTML = `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:16px;">
+                        <div style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase;">Bộ Môn: ${tc.subject_name}</div>
+                        <h3 style="font-size:17px; font-weight:800; margin:4px 0 10px; color:#0f172a;">${tc.teacher_name}</h3>
+                        
+                        ${tc.phone ? `
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:white; padding:10px 12px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:8px;">
+                                <div>
+                                    <div style="font-size:10px; color:#64748b; font-weight:700;">SỐ ĐIỆN THOẠI</div>
+                                    <div style="font-size:15px; font-weight:800; color:#047857;">${tc.phone}</div>
+                                </div>
+                                <div class="teacher-action-btns">
+                                    <a href="tel:${tc.phone}" class="t-call-btn"><i class="fa-solid fa-phone"></i> Gọi</a>
+                                    <a href="https://zalo.me/${cleanPhone}" target="_blank" rel="noopener" class="t-zalo-btn"><i class="fa-solid fa-comment-dots"></i> Zalo</a>
+                                </div>
+                            </div>
+                        ` : '<p style="font-size:12px; color:#64748b;">Chưa có số điện thoại liên hệ.</p>'}
+
+                        ${tc.note ? `<div style="font-size:12px; color:#475569; background:#fff; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">📝 <b>Ghi chú:</b> ${tc.note}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('singleTeacherModal').style.display = 'flex';
+        }
+
+        function closeSingleTeacherModal(e) {
+            if (!e || e.target.id === 'singleTeacherModal') document.getElementById('singleTeacherModal').style.display = 'none';
+        }
+
+        function openAllTeachersModal() { document.getElementById('allTeachersModal').style.display = 'flex'; }
+        function closeAllTeachersModal(e) {
+            if (!e || e.target.id === 'allTeachersModal') document.getElementById('allTeachersModal').style.display = 'none';
+        }
+
+        function openSubjectSummaryModal() {
+            const container = document.getElementById('subjectSummaryBody');
+            let kids = (currentProfile === 'all') ? ['1', '2'] : [currentProfile];
+            let html = '';
+
+            kids.forEach(kId => {
+                const isKid1 = (kId === '1');
+                const kidName = isKid1 
+                    ? `👧 Bé ${appSettings.kid1_name || 'Trâm Anh'} (${appSettings.kid1_class || '6A3'})` 
+                    : `👦 Bé ${appSettings.kid2_name || 'Thành Phát'} (${appSettings.kid2_class || '10A4'})`;
+                const kidColor = isKid1 ? '#15803d' : '#1d4ed8';
+
+                const list = scheduleData.filter(i => i.be_id === kId);
+                const counts = {};
+                let totalSlots = 0;
+
+                list.forEach(i => {
+                    const sub = (i.subject || '').trim();
+                    if (sub && sub !== '-') {
+                        counts[sub] = (counts[sub] || 0) + 1;
+                        totalSlots++;
+                    }
+                });
+
+                const sortedSubjects = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+                html += `
+                    <div class="summary-kid-title" style="color: ${kidColor};">
+                        <span>${kidName}</span>
+                        <span style="font-size:11px; color:#64748b; font-weight:600;">(Tổng cộng: <b>${totalSlots}</b> tiết/tuần)</span>
+                    </div>
+                `;
+
+                if (sortedSubjects.length === 0) {
+                    html += `<div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">Chưa có dữ liệu thời khóa biểu.</div>`;
+                } else {
+                    html += `<div class="summary-grid" style="margin-bottom:16px;">`;
+                    sortedSubjects.forEach(s => {
+                        html += `
+                            <div class="summary-card">
+                                <span class="s-name">${s}</span>
+                                <span class="s-count">${counts[s]} tiết</span>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                }
+            });
+
+            container.innerHTML = html;
+            document.getElementById('subjectSummaryModal').style.display = 'flex';
+        }
+
+        function closeSubjectSummaryModal(e) {
+            if (!e || e.target.id === 'subjectSummaryModal') {
+                document.getElementById('subjectSummaryModal').style.display = 'none';
+            }
+        }
+
+        function formatRemainingTime(minutesDiff) {
+            if (minutesDiff <= 0) return 'bây giờ';
+            const h = Math.floor(minutesDiff / 60);
+            const m = minutesDiff % 60;
+            if (h === 0) return `${m} phút`;
+            if (m === 0) return `${h} giờ`;
+            return `${h}h ${m}p`;
+        }
+
+        function getStatusForKid(kidId, currentMinutes) {
+            let kidName = (kidId === '1') ? (appSettings.kid1_name || 'Trâm Anh') : (appSettings.kid2_name || 'Thành Phát');
+            let kidColor = (kidId === '1') ? '#10b981' : '#3b82f6';
+            let list = scheduleData.filter(i => i.day === realTodayKey && i.be_id === kidId);
+
+            if (list.length === 0) {
+                return {
+                    status: 'NGHỈ NGƠI',
+                    statusBg: 'rgba(148, 163, 184, 0.2)',
+                    statusColor: '#94a3b8',
+                    subject: 'Không có lịch học hôm nay',
+                    child: kidName,
+                    childColor: kidColor,
+                    time: 'Thảnh thơi 🎉',
+                    timeHint: 'Không có tiết nào',
+                    icon: 'fa-mug-hot',
+                    iconColor: '#94a3b8',
+                    targetCardId: null,
+                    isClickable: false
+                };
+            }
+
+            let parsedList = list.map(item => {
+                let range = parseSlotMinutes(item);
+                let startMin = range ? range.start : getItemStartMinutes(item);
+                let endMin = range ? range.end : (startMin + 45);
+                return {
+                    item: item,
+                    start: startMin,
+                    end: endMin,
+                    timeRangeStr: range ? range.timeRangeStr : getEstimatedTimeRange(item.buoi, item.tiet)
+                };
+            });
+
+            parsedList.sort((a, b) => a.start - b.start);
+
+            // 1. ĐANG DIỄN RA
+            let ongoing = parsedList.find(p => currentMinutes >= p.start && currentMinutes <= p.end);
+            if (ongoing) {
+                let cleanTiet = ongoing.item.tiet.split('(')[0].trim();
+                let remaining = ongoing.end - currentMinutes;
+                return {
+                    status: 'ĐANG DIỄN RA',
+                    statusBg: 'rgba(234, 88, 12, 0.25)',
+                    statusColor: '#f97316',
+                    subject: ongoing.item.subject,
+                    child: kidName,
+                    childColor: kidColor,
+                    time: cleanTiet + ' (' + ongoing.timeRangeStr + ')',
+                    timeHint: `Còn khoảng ${remaining} phút là tan tiết`,
+                    icon: 'fa-book-open-reader',
+                    iconColor: '#ea580c',
+                    targetCardId: `slot-card-${ongoing.item.id}-${ongoing.item.be_id}-${ongoing.item.day}`,
+                    isClickable: true
+                };
+            }
+
+            // 2. TÌM MÔN HỌC KẾ TIẾP
+            let nextSlot = parsedList.find(p => p.start > currentMinutes);
+
+            if (nextSlot) {
+                let diffMinutes = nextSlot.start - currentMinutes;
+                let cleanTiet = nextSlot.item.tiet.split('(')[0].trim();
+                let cardId = `slot-card-${nextSlot.item.id}-${nextSlot.item.be_id}-${nextSlot.item.day}`;
+
+                if (diffMinutes <= 60) {
+                    return {
+                        status: 'SẮP DIỄN RA',
+                        statusBg: 'rgba(245, 158, 11, 0.25)',
+                        statusColor: '#fbbf24',
+                        subject: nextSlot.item.subject,
+                        child: kidName,
+                        childColor: kidColor,
+                        time: cleanTiet + ' (' + nextSlot.timeRangeStr + ')',
+                        timeHint: `Bắt đầu sau ${diffMinutes} phút`,
+                        icon: 'fa-hourglass-half',
+                        iconColor: '#f59e0b',
+                        targetCardId: cardId,
+                        isClickable: true
+                    };
+                }
+
+                let buoiText = (nextSlot.item.buoi || '').toUpperCase();
+                let buoiLabel = buoiText.includes('CHIỀU') ? 'Buổi Chiều' : (buoiText.includes('TỐI') ? 'Buổi Tối' : 'Tiếp theo');
+                let startTimeStr = nextSlot.timeRangeStr.split('-')[0].trim();
+
+                return {
+                    status: 'TIẾT TIẾP THEO',
+                    statusBg: 'rgba(59, 130, 246, 0.22)',
+                    statusColor: '#60a5fa',
+                    subject: nextSlot.item.subject,
+                    child: kidName,
+                    childColor: kidColor,
+                    time: `${buoiLabel} lúc ${startTimeStr}`,
+                    timeHint: `Còn khoảng ${formatRemainingTime(diffMinutes)} nữa`,
+                    icon: 'fa-calendar-clock',
+                    iconColor: '#38bdf8',
+                    targetCardId: null,
+                    isClickable: false
+                };
+            }
+
+            // 3. ĐÃ HOÀN THÀNH TẤT CẢ TIẾT TRONG NGÀY
+            return {
+                status: 'ĐÃ HOÀN THÀNH',
+                statusBg: 'rgba(16, 185, 129, 0.22)',
+                statusColor: '#34d399',
+                subject: 'Tất cả tiết học',
+                child: kidName,
+                childColor: kidColor,
+                time: 'Đã hết tiết học',
+                timeHint: 'Nghỉ ngơi & chuẩn bị bài mới',
+                icon: 'fa-circle-check',
+                iconColor: '#10b981',
+                targetCardId: null,
+                isClickable: false
+            };
+        }
+
+        function scrollToSubjectCard(cardId) {
+            if (!cardId) return;
+
+            if (currentDay !== realTodayKey) {
+                changeDay(realTodayKey);
+            }
+
+            setTimeout(() => {
+                const target = document.getElementById(cardId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    target.classList.add('card-highlight-flash');
+                    setTimeout(() => {
+                        target.classList.remove('card-highlight-flash');
+                    }, 1800);
+                }
+            }, 100);
+        }
+
+        function updateDynamicWidget() {
+            const widget = document.getElementById('upcomingWidget');
+            const container = document.getElementById('widgetItemsContainer');
+
+            if (currentDay !== realTodayKey) {
+                widget.style.display = 'none';
+                return;
+            }
+
+            widget.style.display = 'block';
+
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+            let targetKids = (currentProfile === 'all') ? ['1', '2'] : [currentProfile];
+            let html = '';
+            targetKids.forEach(kidId => {
+                let info = getStatusForKid(kidId, currentMinutes);
+                let clickAttr = info.isClickable && info.targetCardId ? `onclick="scrollToSubjectCard('${info.targetCardId}')"` : '';
+                let cursorClass = info.isClickable ? 'clickable' : '';
+                let navIcon = info.isClickable ? `<i class="fa-solid fa-arrow-turn-down" style="font-size:10px; margin-left:4px; opacity:0.8;"></i>` : '';
+
+                html += `
+                    <div class="widget-item ${cursorClass}" ${clickAttr} title="${info.isClickable ? 'Bấm để xem vị trí môn học bên dưới' : ''}">
+                        <div class="widget-left">
+                            <div class="widget-icon"><i class="fa-solid ${info.icon}" style="color: ${info.iconColor};"></i></div>
+                            <div style="min-width:0;">
+                                <span class="widget-status-badge" style="background: ${info.statusBg}; color: ${info.statusColor};">
+                                    ${info.status} ${navIcon}
+                                </span>
+                                <div class="widget-subject">${info.subject}</div>
+                            </div>
+                        </div>
+                        <div class="widget-right">
+                            <div class="widget-child" style="color: ${info.childColor};">${info.child}</div>
+                            <div class="widget-time">${info.time}</div>
+                            <div class="widget-time-hint">${info.timeHint}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (container) {
+                container.innerHTML = html;
+            }
+        }
+
+        // --- VUỐT MÀN HÌNH ĐỔI NGÀY TRÊN MOBILE ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', function(e) {
+            if (window.matchMedia("(orientation: landscape)").matches || window.innerWidth >= 1024 || e.target.closest('#dateStrip') || e.target.closest('.modal-content') || e.target.closest('#landscapeGridSection')) {
+                touchStartX = 0;
+                touchStartY = 0;
+                return;
+            }
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function(e) {
+            if (!touchStartX && !touchStartY) return;
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            handleGlobalGesture();
+            touchStartX = 0;
+            touchStartY = 0;
+        }, { passive: true });
+
+        function handleGlobalGesture() {
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {
+                const currentIndex = daysKeysList.indexOf(currentDay);
+                if (diffX < 0) {
+                    if (currentIndex < daysKeysList.length - 1) {
+                        changeDay(daysKeysList[currentIndex + 1]);
+                    }
+                } else {
+                    if (currentIndex > 0) {
+                        changeDay(daysKeysList[currentIndex - 1]);
+                    }
+                }
+            }
+        }
+
+        // --- BẬT / TẮT TOÀN MÀN HÌNH (FULLSCREEN API) ---
+        function toggleFullscreen() {
+            const icon = document.getElementById('fullScreenIcon');
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                const docEl = document.documentElement;
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen().catch(() => {});
+                } else if (docEl.webkitRequestFullscreen) {
+                    docEl.webkitRequestFullscreen();
+                }
+                if (icon) icon.className = 'fa-solid fa-compress';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+                if (icon) icon.className = 'fa-solid fa-expand';
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const icon = document.getElementById('fullScreenIcon');
+            if (icon) {
+                icon.className = document.fullscreenElement ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+            }
+        });
+
+        // --- CHUYỂN ĐỔI CHẾ ĐỘ XEM TRÊN PC (LƯỚI <-> DI ĐỘNG) ---
+        function applyPcViewMode(mode) {
+            const icon = document.getElementById('pcViewToggleIcon');
+            const text = document.getElementById('pcViewToggleText');
+            if (mode === 'agenda') {
+                document.body.classList.remove('pc-mode-grid');
+                document.body.classList.add('pc-mode-agenda');
+                if (icon) icon.className = 'fa-solid fa-table-cells';
+                if (text) text.innerText = 'Chế độ lưới trên PC';
+            } else {
+                document.body.classList.remove('pc-mode-agenda');
+                document.body.classList.add('pc-mode-grid');
+                if (icon) icon.className = 'fa-solid fa-mobile-screen';
+                if (text) text.innerText = 'Chế độ di động trên PC';
+            }
+            localStorage.setItem('tkb_pc_view_mode', mode);
+        }
+
+        function togglePcViewMode() {
+            const currentMode = document.body.classList.contains('pc-mode-agenda') ? 'agenda' : 'grid';
+            const targetMode = (currentMode === 'grid') ? 'agenda' : 'grid';
+            applyPcViewMode(targetMode);
+        }
+
+        function initPcViewMode() {
+            const savedMode = localStorage.getItem('tkb_pc_view_mode') || 'grid';
+            applyPcViewMode(savedMode);
+        }
+
+        window.addEventListener('resize', () => {
+            renderLandscapeGrid();
+        });
+        
+        window.addEventListener('orientationchange', () => {
+            setTimeout(renderLandscapeGrid, 200);
+        });
+
+        // TỰ ĐỘNG DỌN SẠCH CACHE CŨ
+        if ('caches' in window) {
+            caches.keys().then((names) => {
+                for (let name of names) {
+                    if (name !== 'tkb-live-v1' && name !== 'tkb-static-v1') {
+                        caches.delete(name);
+                    }
+                }
+            });
+        }
+
+        // ĐĂNG KÝ SERVICE WORKER CHO OFFLINE
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then((reg) => {
+                    reg.update();
+                }).catch(() => {});
+            });
+        }
+
+        // ĐỒNG BỘ DỮ LIỆU ĐỘNG TỪ API
+        async function syncDataFromServer() {
+            if (!navigator.onLine) {
+                return false;
+            }
+            try {
+                const res = await fetch('api.php?t=' + Date.now(), { 
+                    cache: 'no-store',
+                    headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.schedule_data) {
+                        scheduleData = data.schedule_data;
+                        rawSchedules = data.raw_schedules;
+                        teachersMap = data.teachers_map;
+                        appSettings = Object.assign({}, appSettings, data.settings);
+
+                        if (data.todo_tags !== undefined && data.todo_tags !== null) {
+                            let serverTags = data.todo_tags;
+                            if (Array.isArray(serverTags) || typeof serverTags !== 'object') {
+                                serverTags = {};
+                            }
+                            localStorage.setItem('tkb_todo_tags', JSON.stringify(serverTags));
+                        }
+
+                        if (data.exam_schedules !== undefined && data.exam_schedules !== null) {
+                            localStorage.setItem('tkb_exam_schedules', JSON.stringify(data.exam_schedules));
+                        }
+
+                        saveToOfflineStorage();
+                        updateHeaderNames();
+
+                        refreshRealTimeDates();
+                        renderAgenda();
+                        updateDynamicWidget();
+                        renderLandscapeGrid();
+                        checkRainAlert();
+                        updateExamBadgeCount();
+                        return true;
+                    }
+                }
+            } catch (err) {
+                console.log('Đang chạy ở chế độ offline hoặc mạng chậm.');
+            }
+            return false;
+        }
+
+        // NÚT LÀM MỚI BẰNG TAY
+        async function manualSync() {
+            const btn = document.getElementById('refreshBtn');
+            const icon = btn.querySelector('i');
+            icon.classList.add('fa-spin');
+            
+            refreshRealTimeDates();
+            if (navigator.onLine) {
+                await syncDataFromServer();
+            } else {
+                showNetworkToast('offline', 'Bạn đang offline, không thể cập nhật trực tuyến');
+            }
+            
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+            }, 600);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                refreshRealTimeDates();
+                if (navigator.onLine) {
+                    syncDataFromServer();
+                }
+            }
+        });
+
+        // Khởi chạy ứng dụng ban đầu
         initPcViewMode();
         refreshRealTimeDates();
         changeDay(realTodayKey);
-        renderAgenda();
-        updateDynamicWidget();
         renderLandscapeGrid();
         checkRainAlert();
         updateExamBadgeCount();
@@ -2728,7 +3570,7 @@ foreach ($raw_schedules as $row) {
             syncDataFromServer();
         }
 
-        // Quét thời gian thực mỗi 15 giây
+        // Quét thời gian thực mỗi 15 giây & cập nhật ngày nếu qua nửa đêm
         setInterval(() => {
             refreshRealTimeDates();
             renderAgenda();
@@ -2738,7 +3580,7 @@ foreach ($raw_schedules as $row) {
             }
         }, 15000);
 
-        // Định kỳ 15 phút cập nhật lại thời tiết Ninh Hòa
+        // Định kỳ 15 phút cập nhật lại dự báo thời tiết Ninh Hòa
         setInterval(() => {
             checkRainAlert();
         }, 15 * 60 * 1000);
