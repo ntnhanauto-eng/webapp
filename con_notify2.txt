@@ -1,0 +1,32 @@
+<?php
+// Bật toàn bộ thông báo lỗi lên màn hình để kiểm tra
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+echo "Bắt đầu chạy script...<br>";
+
+// 1. Kiểm tra kết nối DB
+if (file_exists('db.php')) {
+    include 'db.php';
+    echo "Đã kết nối db.php thành công.<br>";
+} else {
+    die("Không tìm thấy file db.php!");
+}
+
+// 2. Kiểm tra lấy cài đặt
+$settings = [
+    'kid1_name' => 'Trâm Anh', 'kid1_class' => '6A3',
+    'kid2_name' => 'Thành Phát', 'kid2_class' => '10A4'
+];
+try {
+    $st_set = $conn->query("SELECT setting_key, setting_val FROM app_settings");
+    if ($st_set) {
+        $settings = array_merge($settings, $st_set->fetchAll(PDO::FETCH_KEY_PAIR));
+    }
+    echo "Đã truy vấn cài đặt thành công.<br>";
+} catch (Exception $e) {
+    echo "Lỗi truy vấn cài đặt: " . $e->getMessage() . "<br>";
+}
+
+echo "Mọi thứ hoạt động bình thường! Không có lỗi code.";
+?>
