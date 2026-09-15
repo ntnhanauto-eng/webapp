@@ -13,8 +13,8 @@ if (file_exists('db.php')) {
 }
 
 // 2. CẤU HÌNH TELEGRAM
-define('TELEGRAM_TOKEN', 'ĐIỀN_BOT_TOKEN_VÀO_ĐÂY');
-define('TELEGRAM_CHAT_ID', 'ĐIỀN_CHAT_ID_VÀO_ĐÂY');
+define('TELEGRAM_TOKEN', '8987907075:AAEJFwpZoiH65oO0wh6lP2fNBbNhtv3-cHE');
+define('TELEGRAM_CHAT_ID', '1733868980');
 
 // Hàm gửi tin qua Telegram bằng stream context (chống lỗi 500 do cURL)
 function sendTelegramMessage($message) {
