@@ -1,0 +1,269 @@
+<?php
+// cron_notify.php - Tự động quét giờ tan trường từng bé + Thời tiết Ninh Hòa + Gửi lịch tối
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+date_default_timezone_set('Asia/Ho_Chi_Minh');
+
+// 1. KẾT NỐI CƠ SỞ DỮ LIỆU
+if (file_exists('db.php')) {
+    include 'db.php';
+} else {
+    die("Lỗi: Không tìm thấy file db.php!");
+}
+
+// 2. CẤU HÌNH TELEGRAM
+define('TELEGRAM_TOKEN', 'ĐIỀN_BOT_TOKEN_VÀO_ĐÂY');
+define('TELEGRAM_CHAT_ID', 'ĐIỀN_CHAT_ID_VÀO_ĐÂY');
+
+// Hàm gửi tin qua Telegram bằng stream context (chống lỗi 500 do cURL)
+function sendTelegramMessage($message) {
+    if (TELEGRAM_TOKEN === 'ĐIỀN_BOT_TOKEN_VÀO_ĐÂY' || TELEGRAM_CHAT_ID === 'ĐIỀN_CHAT_ID_VÀO_ĐÂY') {
+        return false;
+    }
+    $url = "https://api.telegram.org/bot" . TELEGRAM_TOKEN . "/sendMessage";
+    $postData = [
+        'chat_id'    => TELEGRAM_CHAT_ID,
+        'text'       => $message,
+        'parse_mode' => 'HTML'
+    ];
+    $options = [
+        'http' => [
+            'header'  => "Content-Type: application/x-www-form-urlencoded\r\n",
+            'method'  => 'POST',
+            'content' => http_build_query($postData),
+            'timeout' => 15,
+        ],
+        'ssl' => [
+            'verify_peer'      => false,
+            'verify_peer_name' => false,
+        ]
+    ];
+    return @file_get_contents($url, false, stream_context_create($options));
+}
+
+// Hàm lấy dữ liệu dự báo thời tiết tại Ninh Hòa
+function fetchNinhHoaWeather($targetHour) {
+    $apiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=12.5000&longitude=109.1333&hourly=temperature_2m,precipitation,precipitation_probability&timezone=Asia%2FBangkok';
+    $options = [
+        'http' => ['timeout' => 8],
+        'ssl'  => ['verify_peer' => false, 'verify_peer_name' => false]
+    ];
+    $res = @file_get_contents($apiUrl, false, stream_context_create($options));
+    
+    if ($res) {
+        $wData = json_decode($res, true);
+        if (isset($wData['hourly']['time'])) {
+            foreach ($wData['hourly']['time'] as $idx => $tStr) {
+                $tTime = strtotime($tStr);
+                if (date('d', $tTime) == date('d') && (int)date('G', $tTime) == $targetHour) {
+                    $precip = $wData['hourly']['precipitation'][$idx] ?? 0;
+                    $prob = $wData['hourly']['precipitation_probability'][$idx] ?? 0;
+                    $temp = round($wData['hourly']['temperature_2m'][$idx] ?? 30);
+                    
+                    if ($precip > 0.1 || $prob >= 40) {
+                        return "🌧️ <b>Dự báo có mưa ({$temp}°C, xác suất {$prob}%)</b>. Ba mẹ nhớ mang <b>áo mưa/ô</b> cho con nhé!";
+                    } elseif ($temp >= 33) {
+                        return "☀️ <b>Trời nắng gắt ({$temp}°C)</b>. Ba mẹ nhắc con đội <b>nón/mũ</b> che nắng!";
+                    } else {
+                        return "🌤️ Thời tiết mát mẻ ({$temp}°C), không mưa. Thuận lợi đón con!";
+                    }
+                }
+            }
+        }
+    }
+    return "🌤️ Thời tiết tương đối ổn định. Ba mẹ chú ý phương tiện khi đi đón con.";
+}
+
+// 3. ĐỌC CẤU HÌNH TÊN BÉ
+$settings = [
+    'kid1_name'  => 'Trâm Anh', 
+    'kid1_class' => '6A3',
+    'kid2_name'  => 'Thành Phát', 
+    'kid2_class' => '10A4'
+];
+
+try {
+    $st_set = $conn->query("SELECT setting_key, setting_val FROM app_settings");
+    if ($st_set) {
+        $settings = array_merge($settings, $st_set->fetchAll(PDO::FETCH_KEY_PAIR));
+    }
+} catch (Exception $e) {}
+
+$kids_meta = [
+    '1' => ['name' => $settings['kid1_name'], 'class' => $settings['kid1_class'], 'icon' => '👧'],
+    '2' => ['name' => $settings['kid2_name'], 'class' => $settings['kid2_class'], 'icon' => '👦']
+];
+
+$mode = $_GET['type'] ?? '';
+$now_minutes = (int)date('G') * 60 + (int)date('i');
+$today_w = (int)date('w');
+$today_field = ($today_w === 0) ? 'cn' : 'thu' . ($today_w + 1);
+
+function timeStrToMinutes($timeStr) {
+    if (preg_match('/(\d{1,2})[:hH](\d{2})/', $timeStr, $m)) {
+        return (int)$m[1] * 60 + (int)$m[2];
+    }
+    return 0;
+}
+
+// Tự động nhận diện giờ kết thúc của tiết học
+function getSlotEndTime($row) {
+    $text = ($row['note'] ?? '') . ' ' . ($row['subject'] ?? '') . ' ' . ($row['tiet'] ?? '');
+
+    // 1. Quét giờ cụ thể được viết tay (ví dụ: 17:10, 17h10, - 11:30)
+    if (preg_match('/(?:~|-|đến|\s)(\d{1,2})[:hH](\d{2})/', $text, $m)) {
+        return timeStrToMinutes($m[1] . ':' . $m[2]);
+    }
+
+    // 2. Mặc định tính theo số tiết học chuẩn
+    $tietNum = (int)preg_replace('/\D/', '', $row['tiet'] ?? '') ?: 1;
+    $buoi = strtoupper($row['buoi'] ?? '');
+
+    if (strpos($buoi, 'SÁNG') !== false || strpos($buoi, 'SANG') !== false) {
+        $times = [1 => '08:00', 2 => '08:50', 3 => '09:50', 4 => '10:45', 5 => '11:35'];
+        return timeStrToMinutes($times[$tietNum] ?? '11:35');
+    } else {
+        // Chiều: Tiết 4 thường là 16:55, Tiết 5 là 17:10 (hoặc 17:45)
+        $times = [1 => '14:15', 2 => '15:05', 3 => '16:05', 4 => '16:55', 5 => '17:10'];
+        return timeStrToMinutes($times[$tietNum] ?? '17:10');
+    }
+}
+
+// =================================================================================
+// TÁC VỤ 1: QUÉT GIỜ TAN HỌC TỰ ĐỘNG & BÁO THỜI TIẾT (?type=check_dismissal)
+// =================================================================================
+if ($mode === 'check_dismissal') {
+    try {
+        $stmt = $conn->query("SELECT * FROM schedule ORDER BY FIELD(buoi, 'SÁNG', 'CHIỀU', 'TỐI'), id ASC");
+        $all_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        die("Lỗi truy vấn schedule.");
+    }
+
+    // Xác định buổi hiện tại cần kiểm tra dựa trên giờ chạy
+    // Trước 13:00 coi là ca sáng, sau 13:00 coi là ca chiều
+    $is_morning_scan = ($now_minutes < 13 * 60);
+    $target_buoi_label = $is_morning_scan ? 'SÁNG' : 'CHIỀU';
+
+    // Mảng lưu giờ tan học muộn nhất của từng bé trong ca hiện tại
+    $dismiss_by_kid = [];
+
+    foreach ($all_rows as $row) {
+        $kidId = (string)($row['be_name'] ?? '');
+        $buoi = strtoupper($row['buoi'] ?? '');
+        
+        // Chỉ lọc theo đúng ca học
+        $match_buoi = $is_morning_scan 
+            ? (strpos($buoi, 'SÁNG') !== false || strpos($buoi, 'SANG') !== false)
+            : (strpos($buoi, 'CHIỀU') !== false || strpos($buoi, 'CHIEU') !== false);
+
+        if (!$match_buoi) continue;
+
+        $content = trim($row[$today_field] ?? '');
+        if (empty($content) || $content === '-') continue;
+
+        $endTime = getSlotEndTime($row);
+
+        if (!isset($dismiss_by_kid[$kidId]) || $endTime > $dismiss_by_kid[$kidId]) {
+            $dismiss_by_kid[$kidId] = $endTime;
+        }
+    }
+
+    $alerts_to_send = [];
+
+    // Kiểm tra từng bé xem có rơi vào khung cảnh báo trước 45-75 phút không
+    foreach ($dismiss_by_kid as $kidId => $dismissTime) {
+        $diff = $dismissTime - $now_minutes;
+
+        // Kích hoạt khi thời gian còn lại đến lúc tan nằm trong khoảng từ 45 đến 75 phút
+        if ($diff >= 45 && $diff <= 75) {
+            $kInfo = $kids_meta[$kidId] ?? ['name' => 'Bé', 'class' => '', 'icon' => '👶'];
+            $time_str = sprintf('%02d:%02d', floor($dismissTime / 60), $dismissTime % 60);
+            $alerts_to_send[] = [
+                'name'      => $kInfo['name'],
+                'class'     => $kInfo['class'],
+                'icon'      => $kInfo['icon'],
+                'time_str'  => $time_str,
+                'target_h'  => (int)floor($dismissTime / 60)
+            ];
+        }
+    }
+
+    if (!empty($alerts_to_send)) {
+        $first_item = $alerts_to_send[0];
+        $weather_info = fetchNinhHoaWeather($first_item['target_h']);
+
+        $msg = "⏰ <b>NHẮC CHUẨN BỊ ĐÓN CON TAN HỌC {$target_buoi_label}</b>\n";
+        $msg .= "━━━━━━━━━━━━━━━━━━━━\n";
+        foreach ($alerts_to_send as $item) {
+            $msg .= "{$item['icon']} <b>{$item['name']}</b> ({$item['class']}): Tan trường lúc <b>{$item['time_str']}</b>\n";
+        }
+        $msg .= "━━━━━━━━━━━━━━━━━━━━\n";
+        $msg .= "📍 <b>Thời tiết Ninh Hòa:</b>\n{$weather_info}";
+
+        sendTelegramMessage($msg);
+        echo "Đã gửi thông báo đón con ca {$target_buoi_label} thành công!";
+        exit;
+    }
+
+    echo "Trạng thái: Chưa tới khung giờ cần nhắc nhở tan học (Quét ca {$target_buoi_label}).";
+}
+
+// =================================================================================
+// TÁC VỤ 2: GỬI LỊCH HỌC NGÀY HÔM SAU LÚC 19H (?type=evening) - GIỮ NGUYÊN
+// =================================================================================
+elseif ($mode === 'evening') {
+    $tomorrow_ts = strtotime('+1 day');
+    $tomorrow_w = (int)date('w', $tomorrow_ts);
+    $target_day = ($tomorrow_w === 0) ? 'cn' : 'thu' . ($tomorrow_w + 1);
+    
+    $day_names = [
+        'thu2' => 'Thứ Hai', 'thu3' => 'Thứ Ba', 'thu4' => 'Thứ Tư',
+        'thu5' => 'Thứ Năm', 'thu6' => 'Thứ Sáu', 'thu7' => 'Thứ Bảy', 'cn' => 'Chủ Nhật'
+    ];
+
+    $msg = "🌙 <b>LỊCH HỌC NGÀY HÔM SAU</b>\n";
+    $msg .= "📅 " . $day_names[$target_day] . " (" . date('d/m/Y', $tomorrow_ts) . ")\n";
+    $msg .= "━━━━━━━━━━━━━━━━━━━━\n\n";
+
+    try {
+        $stmt = $conn->query("SELECT * FROM schedule ORDER BY FIELD(buoi, 'SÁNG', 'CHIỀU', 'TỐI'), id ASC");
+        $all_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        die("Lỗi truy vấn lịch học.");
+    }
+
+    foreach ($kids_meta as $kId => $kInfo) {
+        $msg .= "{$kInfo['icon']} <b>Bé {$kInfo['name']} ({$kInfo['class']}):</b>\n";
+        $has_subject = false;
+
+        foreach ($all_rows as $row) {
+            if ((string)$row['be_name'] !== (string)$kId) continue;
+            
+            $content = trim($row[$target_day] ?? '');
+            if (!empty($content) && $content !== '-') {
+                $has_subject = true;
+                $lines = array_values(array_filter(explode("\n", str_replace("\r", "", $content))));
+                $subject = $lines[0] ?? '';
+                $note = isset($lines[1]) ? implode(' ', array_slice($lines, 1)) : '';
+                
+                $msg .= "  ▫️ [{$row['buoi']} - {$row['tiet']}] <b>{$subject}</b>";
+                if ($note) $msg .= " <i>({$note})</i>";
+                $msg .= "\n";
+            }
+        }
+
+        if (!$has_subject) {
+            $msg .= "  🎉 Ngày mai không có lịch học!\n";
+        }
+        $msg .= "\n";
+    }
+
+    $msg .= "👉 Ba mẹ nhắc các bé soạn sách vở đầy đủ nhé!";
+    sendTelegramMessage($msg);
+    echo "Đã gửi thông báo lịch học ngày mai lên Telegram thành công!";
+} else {
+    echo "Hệ thống cron_notify đang hoạt động. Sử dụng ?type=evening hoặc ?type=check_dismissal để thực thi.";
+}
+?>
