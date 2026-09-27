@@ -1885,7 +1885,7 @@ foreach ($raw_schedules as $row) {
 
             if (!splash) return;
 
-            const totalDuration = 4000;
+            const totalDuration = 3000;
             const startTime = performance.now();
 
             function updateSplash(now) {
