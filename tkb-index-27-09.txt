@@ -1345,277 +1345,168 @@ foreach ($raw_schedules as $row) {
         }
 
         /* ==========================================================================
-           NÂNG CẤP GIAO DIỆN 2.0 — HIỆN ĐẠI HƠN & MƯỢT HƠN
-           Toàn bộ khối dưới đây CHỈ ghi đè thị giác (màu sắc, bo góc, đổ bóng,
-           khoảng cách, hiệu ứng chuyển động). Không có selector nào bị đổi tên,
-           không thêm/xoá phần tử, không đụng tới PHP/JS/DB phía trên.
+           GIAO DIỆN 3.0 — THIẾT KẾ LẠI RÕ RỆT (không đổi id/class/JS/PHP)
            ========================================================================== */
-
         :root {
             --primary: #4f46e5;
             --primary-dark: #4338ca;
-            --primary-light: #eef2ff;
-            --primary-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 55%, #4338ca 100%);
-            --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+            --primary-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 60%, #4338ca 100%);
+            --kid1-grad: linear-gradient(135deg, #34d399, #059669);
+            --kid2-grad: linear-gradient(135deg, #60a5fa, #2563eb);
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
             --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
-            --radius-lg: 20px;
-            --radius-md: 14px;
-            --radius-sm: 10px;
-            --shadow-sm: 0 2px 10px -3px rgba(15, 23, 42, 0.06);
-            --shadow-md: 0 12px 28px -8px rgba(15, 23, 42, 0.10);
-            --shadow-lg: 0 20px 45px -12px rgba(15, 23, 42, 0.16);
-            --shadow-glow-primary: 0 8px 20px -6px rgba(79, 70, 229, 0.45);
+            --shadow-md: 0 14px 32px -10px rgba(79, 70, 229, 0.22);
+            --shadow-lg: 0 24px 55px -14px rgba(15, 23, 42, 0.22);
         }
 
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.001ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.001ms !important;
-                scroll-behavior: auto !important;
-            }
+            *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
         }
+        html { scroll-behavior: smooth; }
 
-        html {
-            scroll-behavior: smooth;
-        }
-
+        /* Nền toàn trang: dải màu mềm rõ rệt thay vì nền phẳng đơn sắc */
         body {
             background:
-                radial-gradient(1100px 620px at 100% -8%, rgba(79, 70, 229, 0.07), transparent 60%),
-                radial-gradient(900px 500px at -10% 0%, rgba(16, 185, 129, 0.05), transparent 55%),
-                var(--bg);
-            -webkit-font-smoothing: antialiased;
-            text-rendering: optimizeLegibility;
+                radial-gradient(900px 480px at 106% -10%, rgba(79, 70, 229, 0.16), transparent 60%),
+                radial-gradient(760px 420px at -6% 4%, rgba(16, 185, 129, 0.13), transparent 58%),
+                radial-gradient(700px 500px at 50% 110%, rgba(59, 130, 246, 0.10), transparent 55%),
+                #f4f6fb;
         }
 
-        /* Thanh cuộn hiện đại trên Desktop */
         @media (min-width: 1024px) {
-            ::-webkit-scrollbar { width: 9px; height: 9px; }
+            ::-webkit-scrollbar { width: 10px; height: 10px; }
             ::-webkit-scrollbar-track { background: transparent; }
-            ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 2px solid transparent; background-clip: padding-box; }
-            ::-webkit-scrollbar-thumb:hover { background: #94a3b8; background-clip: padding-box; }
+            ::-webkit-scrollbar-thumb { background: #c7cff0; border-radius: 20px; border: 2px solid transparent; background-clip: padding-box; }
         }
 
-        /* --- Header: kính mờ + viền gradient tinh tế --- */
+        /* ---- HEADER: dải màu rõ + tiêu đề gradient to hơn ---- */
         .app-header {
-            background: rgba(255, 255, 255, 0.72);
-            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            background: linear-gradient(135deg, rgba(238, 242, 255, 0.92), rgba(255, 255, 255, 0.88));
+            border-bottom: none;
+            box-shadow: 0 1px 0 rgba(79, 70, 229, 0.08);
         }
         .app-header::after {
             content: '';
-            position: absolute;
-            left: 0; right: 0; bottom: -1px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(79, 70, 229, 0.35), transparent);
+            position: absolute; left: 0; right: 0; bottom: -3px; height: 3px;
+            background: var(--primary-grad);
         }
         .app-header { position: sticky; }
         .header-left h1 {
+            font-size: 19px;
             background: var(--primary-grad);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.3px;
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            letter-spacing: -0.4px;
+        }
+        .header-left h1 i {
+            -webkit-text-fill-color: initial;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border-radius: 10px;
+            background: var(--primary-light, #eef2ff);
+            font-size: 14px !important;
+            box-shadow: 0 4px 10px -3px rgba(79, 70, 229, 0.35);
         }
         .icon-btn {
-            border-color: rgba(226, 232, 240, 0.9);
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-            transition: transform 0.2s var(--ease-snap), box-shadow 0.2s var(--ease-smooth), background-color 0.2s ease, color 0.2s ease;
-            will-change: transform;
+            border: none;
+            background: #eef1fb;
+            color: var(--primary-dark);
+            border-radius: 12px;
+            transition: transform .2s var(--ease-snap), box-shadow .2s var(--ease), background-color .2s ease;
         }
-        .icon-btn:hover {
-            color: var(--primary);
-            border-color: #c7d2fe;
-            box-shadow: 0 6px 14px -4px rgba(79, 70, 229, 0.25);
-            transform: translateY(-1px);
-        }
-        .icon-btn:active { transform: scale(0.92) translateY(0); }
+        .icon-btn:hover { background: #e0e7ff; box-shadow: 0 8px 18px -6px rgba(79, 70, 229, 0.4); transform: translateY(-1px); }
+        .icon-btn:active { transform: scale(0.9); }
+        .more-dropdown-menu { border: none; border-radius: 16px; box-shadow: var(--shadow-lg); }
+        .dropdown-item-btn { border-radius: 10px; transition: all .15s ease; }
+        .dropdown-item-btn:hover { background: #eef2ff; color: var(--primary-dark); padding-left: 16px; }
 
-        .more-dropdown-menu {
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-lg);
-        }
-        .dropdown-item-btn { border-radius: var(--radius-sm); transition: background-color 0.15s ease, transform 0.15s var(--ease-smooth), color 0.15s ease; }
-        .dropdown-item-btn:hover { background: var(--primary-light); color: var(--primary-dark); transform: translateX(2px); }
+        /* ---- HỒ SƠ 2 BÉ ---- */
+        .profile-pill { border-radius: 16px; border: none; background: #ffffff; box-shadow: 0 3px 10px -4px rgba(15,23,42,0.12); }
+        .profile-avatar { border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+        .profile-pill.active[data-target="all"] { background: var(--primary-grad) !important; box-shadow: var(--shadow-md); }
+        .profile-pill.active[data-target="all"] .name, .profile-pill.active[data-target="all"] .desc { color: #fff !important; }
+        .profile-pill.active[data-target="1"] { background: var(--kid1-grad) !important; box-shadow: 0 14px 32px -10px rgba(5,150,105,.4); }
+        .profile-pill.active[data-target="1"] .name, .profile-pill.active[data-target="1"] .desc { color: #fff !important; }
+        .profile-pill.active[data-target="2"] { background: var(--kid2-grad) !important; box-shadow: 0 14px 32px -10px rgba(37,99,235,.4); }
+        .profile-pill.active[data-target="2"] .name, .profile-pill.active[data-target="2"] .desc { color: #fff !important; }
+        .profile-pill.active .profile-avatar { background: rgba(255,255,255,.25) !important; }
 
-        /* --- Profile pills --- */
-        .profile-pill {
-            border-radius: var(--radius-md);
-            border-color: rgba(226, 232, 240, 0.9);
-            box-shadow: var(--shadow-sm);
-            transition: transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth), border-color 0.2s ease, background-color 0.2s ease;
-        }
-        .profile-pill:active { transform: scale(0.97); }
-        .profile-pill.active[data-target="all"] { box-shadow: var(--shadow-glow-primary); }
-        .profile-pill.active[data-target="1"] { box-shadow: 0 8px 20px -6px rgba(16, 185, 129, 0.4); }
-        .profile-pill.active[data-target="2"] { box-shadow: 0 8px 20px -6px rgba(59, 130, 246, 0.4); }
-        .profile-avatar { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
-
-        /* --- Dải ngày (date chips) --- */
-        .date-strip-box { background: rgba(255, 255, 255, 0.75); }
+        /* ---- DẢI NGÀY: pill đầy màu khi active ---- */
+        .date-strip-box { background: transparent; border-bottom: none; }
         .date-item {
-            border-radius: var(--radius-md);
-            background: #eef1f6;
-            border-width: 1.5px;
-            transition: transform 0.28s var(--ease-snap), box-shadow 0.28s var(--ease-smooth), background-color 0.25s ease, border-color 0.25s ease;
-            will-change: transform;
+            border: none; border-radius: 16px; background: #ffffff;
+            box-shadow: 0 2px 8px -3px rgba(15,23,42,0.10);
+            transition: transform .3s var(--ease-snap), box-shadow .3s var(--ease), background .25s ease;
         }
-        .date-item:active { transform: scale(0.94); }
+        .date-item:active { transform: scale(0.92); }
         .date-item.active {
-            box-shadow: var(--shadow-md), 0 0 0 3px color-mix(in srgb, var(--active-theme-color) 16%, transparent) !important;
-            transform: translateY(-3px) !important;
+            background: var(--active-theme-color) !important;
+            box-shadow: var(--shadow-md) !important;
+            transform: translateY(-4px) !important;
         }
-        .today-quick-btn, .voice-read-btn { transition: transform 0.2s var(--ease-snap), box-shadow 0.2s ease, filter 0.2s ease; }
-        .today-quick-btn:hover, .voice-read-btn:hover { filter: brightness(1.05); box-shadow: 0 4px 10px -2px rgba(79, 70, 229, 0.3); }
+        .date-item.active .d-day, .date-item.active .d-num { color: #fff !important; }
+        .date-item.is-weekend { background: #fff1f1; }
 
-        /* --- Widget "Sắp tới" dạng thẻ tối --- */
+        .voice-read-btn { border-radius: 999px; box-shadow: 0 4px 14px -3px rgba(79,70,229,.5); }
+        .today-quick-btn { border-radius: 999px; background: #e9ecf7; }
+
+        /* ---- WIDGET SẮP TỚI ---- */
         .upcoming-widget {
-            background: linear-gradient(160deg, #111827 0%, #0f172a 65%, #0b1220 100%);
-            border-radius: var(--radius-lg);
-            border: 1px solid rgba(99, 102, 241, 0.22);
-            box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.04);
-        }
-        .widget-item.clickable { border-radius: var(--radius-sm); transition: transform 0.22s var(--ease-smooth), background-color 0.22s ease; }
-        .widget-icon { border-radius: 12px; }
-
-        /* --- Thẻ môn học trên timeline --- */
-        .subject-card {
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            transition: transform 0.25s var(--ease-smooth), box-shadow 0.25s var(--ease-smooth), border-color 0.25s ease;
-            will-change: transform;
-        }
-        @media (hover: hover) {
-            .subject-card:not(.is-past-slot):hover {
-                transform: translateY(-2px);
-                box-shadow: var(--shadow-md);
-            }
-        }
-        .timeline-node { box-shadow: 0 0 0 4px var(--bg); }
-        .subject-title-link { transition: color 0.18s ease; }
-        .teacher-tag-btn, .buoi-pill, .kid-tag, .buoi-tag {
-            border-radius: 999px;
-        }
-        .teacher-tag-btn { transition: transform 0.18s var(--ease-snap), background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease; }
-
-        .custom-todo-badge, .add-badge-btn {
-            border-radius: 999px;
-            transition: transform 0.18s var(--ease-snap), filter 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
-        }
-        .custom-todo-badge:active, .add-badge-btn:active { transform: scale(0.96); }
-        .custom-todo-badge:hover, .add-badge-btn:hover { filter: brightness(0.98); }
-
-        .empty-state { border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
-
-        /* --- Modal: mở mượt hơn bằng animation tự phát lại mỗi lần display đổi --- */
-        .modal-overlay {
-            animation: modalOverlayIn 0.22s var(--ease-smooth);
-        }
-        @keyframes modalOverlayIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .modal-content {
+            background: linear-gradient(160deg, #12172b, #0b0f1e);
             border-radius: 22px;
+            border: 1px solid rgba(99,102,241,.28);
             box-shadow: var(--shadow-lg);
-            animation: modalPopIn 0.28s var(--ease-smooth);
-            will-change: transform;
         }
-        @keyframes modalPopIn {
-            from { opacity: 0; transform: translateY(14px) scale(0.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .modal-header { background: rgba(248, 250, 252, 0.9); backdrop-filter: blur(6px); }
-        .modal-close-btn { border-radius: 50%; width: 30px; height: 30px; transition: background-color 0.15s ease, transform 0.15s var(--ease-smooth); }
-        .modal-close-btn:hover { background: #f1f5f9; transform: rotate(90deg); }
+        .widget-icon { border-radius: 12px; }
+        .widget-item.clickable { border-radius: 12px; }
 
-        .form-input, .form-select {
-            border-radius: var(--radius-sm);
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        /* ---- THẺ MÔN HỌC: viền trái + nền theo màu từng bé ---- */
+        .subject-card {
+            border-radius: 18px;
+            border-width: 2px;
+            border-left-width: 6px;
+            box-shadow: 0 4px 14px -6px rgba(15,23,42,.10);
+            transition: transform .25s var(--ease), box-shadow .25s var(--ease);
         }
-        .form-input:focus, .form-select:focus { box-shadow: 0 0 0 4px var(--primary-light); }
-        .btn-submit-tag {
-            background: var(--primary-grad);
-            border-radius: var(--radius-sm);
-            box-shadow: var(--shadow-glow-primary);
-            transition: transform 0.18s var(--ease-snap), box-shadow 0.18s ease, filter 0.18s ease;
-        }
-        .btn-submit-tag:hover { filter: brightness(1.06); }
-        .btn-submit-tag:active { transform: scale(0.98); }
-        .btn-delete-tag, .t-call-btn, .t-zalo-btn, .print-tkb-btn, .exam-tab-btn {
-            transition: transform 0.18s var(--ease-snap), background-color 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-        }
-        .t-call-btn, .t-zalo-btn { border-radius: var(--radius-sm); }
-        .t-call-btn:hover, .t-zalo-btn:hover { filter: brightness(1.05); box-shadow: 0 6px 14px -4px rgba(0,0,0,0.25); }
-
-        .search-result-item, .summary-card, .exam-card-item {
-            border-radius: var(--radius-md);
-            transition: transform 0.2s var(--ease-smooth), box-shadow 0.2s var(--ease-smooth), border-color 0.2s ease, background-color 0.2s ease;
-        }
-        .search-result-item:hover { transform: translateX(2px); }
-        .exam-card-item { box-shadow: var(--shadow-sm); }
-        .exam-card-item:hover { box-shadow: var(--shadow-md); }
-        .exam-tabs-nav { border-radius: var(--radius-md); }
-        .exam-tab-btn { border-radius: 10px; }
-
-        /* --- Bảng lưới thời khoá biểu (landscape) --- */
-        .landscape-table-card {
-            border-radius: var(--radius-lg);
-            border-color: rgba(203, 213, 225, 0.8);
-            box-shadow: var(--shadow-md);
-            overflow: hidden;
-        }
-        .landscape-card-header {
-            background: linear-gradient(180deg, #ffffff, #fbfcff);
-        }
-        .landscape-table th {
-            background: linear-gradient(180deg, #f8fafc, #eef1f6);
-            position: sticky;
-            top: 0;
-            z-index: 3;
-        }
-        .landscape-table tbody tr:nth-child(odd) .landscape-time-col-cell {
-            background: rgba(248, 250, 252, 0.6);
-        }
-        .grid-sub-box {
-            border-radius: 9px;
-            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
-            transition: transform 0.18s var(--ease-smooth), box-shadow 0.18s var(--ease-smooth), background-color 0.18s ease, border-color 0.18s ease;
-        }
+        .subject-card:has(.kid-tag-1) { background: #f0fdf6 !important; border-color: #a7f3d0 !important; border-left-color: #059669 !important; }
+        .subject-card:has(.kid-tag-2) { background: #eff6ff !important; border-color: #bfdbfe !important; border-left-color: #2563eb !important; }
         @media (hover: hover) {
-            .grid-sub-box:not(.is-past-slot):hover {
-                transform: translateY(-1px) scale(1.015);
-                box-shadow: 0 6px 14px -3px rgba(15, 23, 42, 0.18);
-                z-index: 8;
-            }
+            .subject-card:not(.is-past-slot):hover { transform: translateY(-3px) translateX(2px); box-shadow: 0 14px 30px -10px rgba(15,23,42,.22); }
         }
-        .grid-sub-box.is-current-slot { animation: gridPulseSlot 2.2s infinite ease-in-out; }
-        @keyframes gridPulseSlot {
-            0%, 100% { box-shadow: 0 0 8px rgba(234, 88, 12, 0.35); }
-            50% { box-shadow: 0 0 14px rgba(234, 88, 12, 0.55); }
-        }
-        .print-tkb-btn { border-radius: var(--radius-sm); }
-        .print-tkb-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+        .subject-title-link { font-size: 17px; }
+        .kid-tag, .buoi-tag, .teacher-tag-btn, .custom-todo-badge, .add-badge-btn { border-radius: 999px !important; }
+        .teacher-tag-btn { background: #fff; border: 1.5px solid var(--primary); }
+        .teacher-tag-btn:hover { background: var(--primary-grad); border-color: transparent; }
 
-        .fullscreen-btn { transition: transform 0.2s var(--ease-snap), background-color 0.2s ease; }
-        .fullscreen-btn:hover { transform: scale(1.06); }
+        /* ---- NÚT & FORM ---- */
+        .btn-submit-tag { background: var(--primary-grad); border-radius: 999px; box-shadow: 0 10px 24px -8px rgba(79,70,229,.55); }
+        .btn-delete-tag { border-radius: 999px; }
+        .t-call-btn, .t-zalo-btn { border-radius: 999px; }
+        .form-input, .form-select { border-radius: 12px; border-width: 2px; }
+        .form-input:focus, .form-select:focus { box-shadow: 0 0 0 4px #e0e7ff; }
+
+        /* ---- MODAL ---- */
+        .modal-content { border-radius: 24px; box-shadow: var(--shadow-lg); overflow: hidden; }
+        .modal-header { background: linear-gradient(135deg, #eef2ff, #ffffff); border-bottom: none; box-shadow: inset 0 -1px 0 rgba(79,70,229,.08); }
+        .modal-close-btn { border-radius: 50%; width: 30px; height: 30px; background: #eef1fb; }
+        .summary-card, .search-result-item, .exam-card-item { border-radius: 14px; border: none; box-shadow: 0 3px 10px -4px rgba(15,23,42,.10); }
+
+        /* ---- BẢNG LƯỚI: header màu + ô theo từng bé ---- */
+        .landscape-table-card { border-radius: 20px; border: none; box-shadow: var(--shadow-lg); overflow: hidden; }
+        .landscape-card-header { background: linear-gradient(135deg, #eef2ff, #ffffff); }
+        .landscape-table th { background: var(--primary-grad); color: #fff; }
+        .landscape-table .col-buoi, .landscape-table .col-tiet { background: #f7f8fd; }
+        [id^="printCard_1"] .grid-sub-box { background: #ecfdf5 !important; border-color: #6ee7b7 !important; }
+        [id^="printCard_1"] .grid-sub-title { color: #047857 !important; }
+        [id^="printCard_2"] .grid-sub-box { background: #eff6ff !important; border-color: #93c5fd !important; }
+        [id^="printCard_2"] .grid-sub-title { color: #1d4ed8 !important; }
+        .grid-sub-box { border-radius: 10px; transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+        @media (hover: hover) {
+            .grid-sub-box:not(.is-past-slot):hover { transform: scale(1.04); box-shadow: 0 10px 22px -6px rgba(15,23,42,.28); z-index: 8; }
+        }
+        .print-tkb-btn { border-radius: 999px; }
 
         .network-toast { border-radius: 999px; box-shadow: var(--shadow-lg); }
-
-        /* --- Footer --- */
-        .app-footer {
-            background: transparent;
-            border-top-color: rgba(203, 213, 225, 0.7);
-        }
-
-        /* --- Splash screen: logo mềm mại hơn --- */
-        .splash-logo-box {
-            border-radius: 28px;
-            background: linear-gradient(160deg, #ffffff, #f1f5f9);
-            box-shadow: var(--shadow-lg);
-        }
+        .app-footer { background: transparent; border-top: none; }
+        .splash-logo-box { border-radius: 28px; box-shadow: var(--shadow-lg); }
         .splash-progress-bar { background: var(--primary-grad); }
     </style>
 </head>
