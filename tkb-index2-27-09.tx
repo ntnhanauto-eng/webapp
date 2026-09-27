@@ -22,7 +22,7 @@ $settings = [
     'kid2_name'   => '',
     'kid2_class'  => '',
     'kid2_pass'   => '',
-    'admin_pass'  => '',
+    'admin_pass'  => 'admin123',
     'semester'    => 'HK1',
     'school_year' => '2026-2027',
     'splash_img'  => 'https://thanhnhan.site/tkb/thoikhoabieu.png'
@@ -2294,14 +2294,13 @@ foreach ($raw_schedules as $row) {
                 subjectName = subjectNameEncoded || '';
             }
 
-            // Đảm bảo ép kiểu kidId chính xác từ dữ liệu truyền vào của từng tiết học
+            // Nhận diện chính xác ID của từng bé (1 cho Trâm Anh và 2 cho Thành Phát)
             const cleanKidId = String(kidId || '1');
 
             document.getElementById('todoSlotKey').value = slotKey;
             document.getElementById('todoKidId').value = cleanKidId;
             document.getElementById('todoModalSubjectTitle').innerHTML = `<i class="fa-solid fa-book-open"></i> Môn: <b>${subjectName}</b>`;
 
-            // Lấy đúng tên bé dựa vào cleanKidId thực tế của tiết học đó
             const kidName = (cleanKidId === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
             document.getElementById('todoModalKidOwner').innerText = `Tiết học của bé: ${kidName}`;
             document.getElementById('todoPassHintText').innerText = `Bắt buộc nhập mật khẩu của bé ${kidName} hoặc mật khẩu Admin để thêm, sửa hoặc xóa.`;
@@ -2340,7 +2339,10 @@ foreach ($raw_schedules as $row) {
             }
 
             let kid1Pass = String(appSettings.kid1_pass || '123456').trim();
-            let kid2Pass = String(appSettings.kid2_pass || '123456').trim();
+            let kid2Pass = String(appSettings.kid2_pass || '456789').trim();
+
+            if (!kid1Pass) kid1Pass = '123456';
+            if (!kid2Pass) kid2Pass = '456789';
 
             if (String(kidId) === '2' || String(kidId).toLowerCase().includes('phát') || String(kidId).toLowerCase().includes('2')) {
                 if (enteredPass === kid2Pass) return true;
