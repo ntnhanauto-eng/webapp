@@ -1634,7 +1634,7 @@ foreach ($raw_schedules as $row) {
     <footer class="app-footer">
         <div class="footer-line-1">Thời khóa biểu học tập</div>
         <div class="footer-line-2">Developed by Nguyễn Nhân</div>
-        <div class="footer-line-3">Version 1.0</div>
+        <div class="footer-line-3">Version 3.0</div>
     </footer>
 
     <!-- MODAL TRA CỨU MÔN HỌC -->
