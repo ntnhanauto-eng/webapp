@@ -1399,11 +1399,6 @@ foreach ($raw_schedules as $row) {
         }
         .header-left h1 i {
             -webkit-text-fill-color: initial;
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 30px; height: 30px; border-radius: 10px;
-            background: var(--primary-light, #eef2ff);
-            font-size: 14px !important;
-            box-shadow: 0 4px 10px -3px rgba(79, 70, 229, 0.35);
         }
         .icon-btn {
             border: none;
@@ -1430,17 +1425,26 @@ foreach ($raw_schedules as $row) {
         .profile-pill.active .profile-avatar { background: rgba(255,255,255,.25) !important; }
 
         /* ---- DẢI NGÀY: pill đầy màu khi active ---- */
-        .date-strip-box { background: transparent; border-bottom: none; }
+        /* Đẩy date-strip-box xuống thêm 1 chút để ô ngày active (có nhấc lên -2px)
+           không bao giờ bị header (z-index cao hơn) che mất phần trên cùng */
+        .date-strip-box {
+            background: transparent;
+            border-bottom: none;
+            top: calc(60px + env(safe-area-inset-top, 0px));
+            padding-top: 12px;
+        }
         .date-item {
             border: none; border-radius: 16px; background: #ffffff;
             box-shadow: 0 2px 8px -3px rgba(15,23,42,0.10);
-            transition: transform .3s var(--ease-snap), box-shadow .3s var(--ease), background .25s ease;
+            transition: transform .25s var(--ease-snap), box-shadow .25s var(--ease), background .25s ease;
+            position: relative;
         }
         .date-item:active { transform: scale(0.92); }
         .date-item.active {
             background: var(--active-theme-color) !important;
             box-shadow: var(--shadow-md) !important;
-            transform: translateY(-4px) !important;
+            transform: translateY(-2px) !important;
+            z-index: 5;
         }
         .date-item.active .d-day, .date-item.active .d-num { color: #fff !important; }
         .date-item.is-weekend { background: #fff1f1; }
@@ -1461,13 +1465,12 @@ foreach ($raw_schedules as $row) {
         /* ---- THẺ MÔN HỌC: viền trái + nền theo màu từng bé ---- */
         .subject-card {
             border-radius: 18px;
-            border-width: 2px;
-            border-left-width: 6px;
+            border-width: 1.5px;
             box-shadow: 0 4px 14px -6px rgba(15,23,42,.10);
             transition: transform .25s var(--ease), box-shadow .25s var(--ease);
         }
-        .subject-card:has(.kid-tag-1) { background: #f0fdf6 !important; border-color: #a7f3d0 !important; border-left-color: #059669 !important; }
-        .subject-card:has(.kid-tag-2) { background: #eff6ff !important; border-color: #bfdbfe !important; border-left-color: #2563eb !important; }
+        .subject-card:has(.kid-tag-1) { background: #f0fdf6 !important; border-color: #6ee7b7 !important; }
+        .subject-card:has(.kid-tag-2) { background: #eff6ff !important; border-color: #93c5fd !important; }
         @media (hover: hover) {
             .subject-card:not(.is-past-slot):hover { transform: translateY(-3px) translateX(2px); box-shadow: 0 14px 30px -10px rgba(15,23,42,.22); }
         }
@@ -1493,6 +1496,9 @@ foreach ($raw_schedules as $row) {
         .landscape-table-card { border-radius: 20px; border: none; box-shadow: var(--shadow-lg); overflow: hidden; }
         .landscape-card-header { background: linear-gradient(135deg, #eef2ff, #ffffff); }
         .landscape-table th { background: var(--primary-grad); color: #fff; }
+        /* Dòng ngày (vd 21/09) trong tiêu đề cột được JS in màu xám bằng inline style,
+           ép lại màu sáng để không bị mờ trên nền gradient tối */
+        .landscape-table th span { color: rgba(255, 255, 255, 0.92) !important; }
         .landscape-table .col-buoi, .landscape-table .col-tiet { background: #f7f8fd; }
         [id^="printCard_1"] .grid-sub-box { background: #ecfdf5 !important; border-color: #6ee7b7 !important; }
         [id^="printCard_1"] .grid-sub-title { color: #047857 !important; }
