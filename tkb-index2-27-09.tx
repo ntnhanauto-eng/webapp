@@ -2294,11 +2294,15 @@ foreach ($raw_schedules as $row) {
                 subjectName = subjectNameEncoded || '';
             }
 
+            // Đảm bảo ép kiểu kidId chính xác từ dữ liệu truyền vào của từng tiết học
+            const cleanKidId = String(kidId || '1');
+
             document.getElementById('todoSlotKey').value = slotKey;
-            document.getElementById('todoKidId').value = String(kidId || '1');
+            document.getElementById('todoKidId').value = cleanKidId;
             document.getElementById('todoModalSubjectTitle').innerHTML = `<i class="fa-solid fa-book-open"></i> Môn: <b>${subjectName}</b>`;
 
-            const kidName = (String(kidId) === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
+            // Lấy đúng tên bé dựa vào cleanKidId thực tế của tiết học đó
+            const kidName = (cleanKidId === '2') ? (appSettings.kid2_name || 'Thành Phát') : (appSettings.kid1_name || 'Trâm Anh');
             document.getElementById('todoModalKidOwner').innerText = `Tiết học của bé: ${kidName}`;
             document.getElementById('todoPassHintText').innerText = `Bắt buộc nhập mật khẩu của bé ${kidName} hoặc mật khẩu Admin để thêm, sửa hoặc xóa.`;
 
